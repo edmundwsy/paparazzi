@@ -47,6 +47,16 @@
 #error INS initialization from flight plan is not yet supported
 #endif
 
+/** Special configuration for Optitrack */
+#if INS_EKF2_OPTITRACK
+#ifndef INS_EKF2_FUSION_MODE
+#define INS_EKF2_FUSION_MODE (MASK_USE_EVPOS | MASK_USE_EVYAW)
+#endif
+#ifndef INS_EKF2_VDIST_SENSOR_TYPE
+#define INS_EKF2_VDIST_SENSOR_TYPE VDIST_SENSOR_EV
+#endif
+#endif
+
 /** The EKF2 fusion mode setting */
 #ifndef INS_EKF2_FUSION_MODE
 #define INS_EKF2_FUSION_MODE (MASK_USE_GPS)
@@ -182,6 +192,42 @@ PRINT_CONFIG_VAR(INS_EKF2_FLOW_NOISE_QMIN)
 #define INS_EKF2_FLOW_INNOV_GATE 4
 #endif
 PRINT_CONFIG_VAR(INS_EKF2_FLOW_INNOV_GATE)
+
+/* External vision position noise (m) */
+#ifndef INS_EKF2_EVP_NOISE
+#define INS_EKF2_EVP_NOISE 0.1f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_EVP_NOISE)
+
+/* External vision velocity noise (m/s) */
+#ifndef INS_EKF2_EVV_NOISE
+#define INS_EKF2_EVV_NOISE 1.0f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_EVV_NOISE)
+
+/* External vision angle noise (rad) */
+#ifndef INS_EKF2_EVA_NOISE
+#define INS_EKF2_EVA_NOISE 0.05f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_EVA_NOISE)
+
+/* GPS measurement noise for horizontal velocity (m/s) */
+#ifndef INS_EKF2_GPS_V_NOISE
+#define INS_EKF2_GPS_V_NOISE 0.3f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_GPS_V_NOISE)
+
+/* GPS measurement position noise (m) */
+#ifndef INS_EKF2_GPS_P_NOISE
+#define INS_EKF2_GPS_P_NOISE 0.5f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_GPS_P_NOISE)
+
+/* Barometric measurement noise for altitude (m) */
+#ifndef INS_EKF2_BARO_NOISE
+#define INS_EKF2_BARO_NOISE 3.5f
+#endif
+PRINT_CONFIG_VAR(INS_EKF2_BARO_NOISE)
 
 /* All registered ABI events */
 static abi_event agl_ev;
@@ -346,11 +392,15 @@ void ins_ekf2_init(void)
 {
   /* Get the ekf parameters */
   ekf_params = ekf.getParamHandle();
-  ekf_params->mag_fusion_type = MAG_FUSE_TYPE_HEADING;
-  ekf_params->is_moving_scaler = 0.8f;
   ekf_params->fusion_mode = INS_EKF2_FUSION_MODE;
   ekf_params->vdist_sensor_type = INS_EKF2_VDIST_SENSOR_TYPE;
   ekf_params->gps_check_mask = INS_EKF2_GPS_CHECK_MASK;
+
+  /* Set specific noise levels */
+  ekf_params->accel_bias_p_noise = 3.0e-3f;
+  ekf_params->gps_vel_noise = INS_EKF2_GPS_V_NOISE;
+  ekf_params->gps_pos_noise = INS_EKF2_GPS_P_NOISE;
+  ekf_params->baro_noise = INS_EKF2_BARO_NOISE;
 
   /* Set optical flow parameters */
   ekf_params->flow_qual_min = INS_EKF2_MIN_FLOW_QUALITY;
@@ -502,6 +552,33 @@ void ins_ekf2_remove_gps(int32_t mode)
   } else {
     ekf_params->fusion_mode = ekf2_params.fusion_mode = INS_EKF2_FUSION_MODE;
   }
+}
+
+void ins_ekf2_parse_EXTERNAL_VISION(uint8_t *buf) {
+  if (DL_EXTERNAL_VISION_ac_id(buf) != AC_ID) { return; } // not for this aircraft
+
+  extVisionSample sample;
+  sample.time_us = get_sys_time_usec(); //FIXME
+  sample.pos(0) = DL_EXTERNAL_VISION_enu_y(buf);
+  sample.pos(1) = DL_EXTERNAL_VISION_enu_x(buf);
+  sample.pos(2) = -DL_EXTERNAL_VISION_enu_z(buf);
+  sample.vel(0) = DL_EXTERNAL_VISION_enu_yd(buf);
+  sample.vel(1) = DL_EXTERNAL_VISION_enu_xd(buf);
+  sample.vel(2) = -DL_EXTERNAL_VISION_enu_zd(buf);
+  sample.quat(0) = DL_EXTERNAL_VISION_body_qi(buf);
+  sample.quat(1) = DL_EXTERNAL_VISION_body_qy(buf);
+  sample.quat(2) = DL_EXTERNAL_VISION_body_qx(buf);
+  sample.quat(3) = -DL_EXTERNAL_VISION_body_qz(buf);
+  sample.posVar.setAll(INS_EKF2_EVP_NOISE);
+  sample.velCov = matrix::eye<float, 3>() * INS_EKF2_EVV_NOISE;
+  sample.angVar = INS_EKF2_EVA_NOISE;
+  sample.vel_frame = velocity_frame_t::LOCAL_FRAME_FRD;
+
+  ekf.setExtVisionData(sample);
+}
+
+void ins_ekf2_parse_EXTERNAL_VISION_SMALL(uint8_t *buf) {
+
 }
 
 /** Publish the attitude and get the new state
