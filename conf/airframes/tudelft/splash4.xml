@@ -78,10 +78,10 @@
     <module name="ins" type="extended" /-->
 
     <module name="ins"           type="ekf2">
-      <define name="INS_EKF2_OPTITRACK" value="true"/>
+      <!--define name="INS_EKF2_OPTITRACK" value="true"/-->
       <!-- Lower noise bounds for GPS due to RTK -->
-      <define name="INS_EKF2_GPS_V_NOISE" value="0.2"/>
-      <define name="INS_EKF2_GPS_P_NOISE" value="0.2"/>
+      <define name="INS_EKF2_GPS_V_NOISE" value="0.1"/>
+      <define name="INS_EKF2_GPS_P_NOISE" value="0.1"/>
       <!--define name="INS_EKF2_VDIST_SENSOR_TYPE" value="VDIST_SENSOR_GPS"/-->
     </module>
     <module name="actuators"     type="pwm">

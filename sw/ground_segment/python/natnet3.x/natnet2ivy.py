@@ -73,6 +73,7 @@ parser.add_argument('-vs', '--vel_samples', dest='vel_samples', default=4, type=
 parser.add_argument('-rg', '--remote_gps', dest='rgl_msg', action='store_true', help="use the old REMOTE_GPS_LOCAL message")
 parser.add_argument('-sm', '--small', dest='small_msg', action='store_true', help="enable the EXTERNAL_VISION_SMALL message instead of the full")
 parser.add_argument('-o', '--old_natnet', dest='old_natnet', action='store_true', help="Change the NatNet version to 2.9")
+parser.add_argument('-zf', '--z_forward', dest='z_forward', action='store_true', help="Z-axis as forward")
 
 args = parser.parse_args()
 
@@ -129,6 +130,18 @@ def compute_velocity(ac_id):
             vel[2] /= nb
     return vel
 
+# Rotate the Z-forward to X-forward frame
+def rotZtoX(in_vec3, quat = False):
+    out_vec3 = {}
+    out_vec3[0] = -in_vec3[0]
+    out_vec3[1] = in_vec3[2]
+    out_vec3[2] = in_vec3[1]
+
+    # Copy the qi
+    if quat:
+        out_vec3[3] = in_vec3[3]
+    return out_vec3
+
 def receiveRigidBodyList( rigidBodyList, stamp ):
     for (ac_id, pos, quat, valid) in rigidBodyList:
         if not valid:
@@ -148,6 +161,13 @@ def receiveRigidBodyList( rigidBodyList, stamp ):
 
         vel = compute_velocity(i)
 
+        # Rotate everything if Z-forward
+        if args.z_forward:
+            pos = rotZtoX(pos)
+            vel = rotZtoX(vel)
+            quat = rotZtoX(quat, True)
+
+        # Check which message to send
         if args.rgl_msg:
             msg = PprzMessage("datalink", "REMOTE_GPS_LOCAL")
             msg['ac_id'] = id_dict[i]

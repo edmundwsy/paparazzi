@@ -31,6 +31,7 @@
 #include "modules/core/abi.h"
 #include "stabilization/stabilization_attitude.h"
 #include "generated/airframe.h"
+#include "generated/flight_plan.h"
 #include "EKF/ekf.h"
 #include "math/pprz_isa.h"
 #include "mcu_periph/sys_time.h"
@@ -54,6 +55,9 @@
 #endif
 #ifndef INS_EKF2_VDIST_SENSOR_TYPE
 #define INS_EKF2_VDIST_SENSOR_TYPE VDIST_SENSOR_EV
+#endif
+#ifndef USE_INS_NAV_INIT
+#define USE_INS_NAV_INIT true
 #endif
 #endif
 
@@ -438,7 +442,20 @@ void ins_ekf2_init(void)
 
   /* Initialize the origin from flight plan */
 #if USE_INS_NAV_INIT
-  ekf.setEkfGlobalOrigin(NAV_LAT0*1e-7, NAV_LON0*1e-7, (NAV_ALT0 + NAV_MSL0)*1e-3);
+  if(ekf.setEkfGlobalOrigin(NAV_LAT0*1e-7, NAV_LON0*1e-7, (NAV_ALT0 + NAV_MSL0)*1e-3))
+  {
+    struct LlaCoor_i llh_nav0; /* Height above the ellipsoid */
+    llh_nav0.lat = NAV_LAT0;
+    llh_nav0.lon = NAV_LON0;
+    /* NAV_ALT0 = ground alt above msl, NAV_MSL0 = geoid-height (msl) over ellipsoid */
+    llh_nav0.alt = NAV_ALT0 + NAV_MSL0;
+
+    ltp_def_from_lla_i(&ekf2.ltp_def, &llh_nav0);
+    ekf2.ltp_def.hmsl = NAV_ALT0;
+    stateSetLocalOrigin_i(&ekf2.ltp_def);
+    
+    ekf2.ltp_stamp = 1;
+  }
 #endif
 
 #if PERIODIC_TELEMETRY
