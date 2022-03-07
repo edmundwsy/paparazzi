@@ -197,3 +197,4 @@ tests/results/*
 
 # K-develop
 *.kate-swp
+.vscode/c_cpp_properties.json
