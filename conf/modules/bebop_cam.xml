@@ -6,7 +6,7 @@
       Compile and control the settings of the Bebop front and bottom cameras.
     </description>
     <section name="Front camera" prefix="MT9F002_">
-      <define name="RESOLUTION" value="0" description="Preset image resolutions, 0 = VGA, 1 = 720p, 2 = 720p 4:3 aspect ratio, 3 = 1080p, 4 = 1080p 4:3 aspect ratio, 5 = 2048*2048, this is the max dimention allowable with isp"/>
+      <define name="RESOLUTION" value="0" description="Preset image resolutions, 0 = VGA, 1 = [720p], 2 = 720p 4:3 aspect ratio, 3 = 1080p, 4 = 1080p 4:3 aspect ratio, 5 = 2048*2048, this is the max dimention allowable with isp"/>
       <define name="OUTPUT_WIDTH" value="640" description="Image horizontal resolution used if MT9F002_RESOLUTION not defined"/>
       <define name="OUTPUT_HEIGHT" value="640" description="Image vertical resolution used if MT9F002_RESOLUTION not defined"/>
       <define name="OFFSET_X" value="0" description="Signed fractional offset from centre of image of original sensor [-0.5,0.5]"/>
