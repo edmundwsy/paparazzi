@@ -49,24 +49,25 @@ int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that 
 float moveDistance = 2;                 // waypoint displacement [m]
 float oob_haeding_increment = 5.f;      // heading angle increment if out of bounds [deg]
 const int16_t max_trajectory_confidence = 5; // number of consecutive negative object detections to be sure we are obstacle free
-
+int32_t x_hat = 0;
 
 // needed to receive output from a separate module running on a parallel process
 static abi_event opticflow_ev;
 static void opticflow_cb(uint8_t __attribute__((unused)) sender_id,
                          uint32_t __attribute__((unused)) stamp, 
-                         int32_t __attribute__((unused)) flow_x, 
+                         int32_t flow_x, 
                          int32_t __attribute__((unused)) flow_y,
                          int32_t __attribute__((unused)) flow_der_x, 
                          int32_t __attribute__((unused)) flow_der_y,
                          float __attribute__((unused)) quality, 
                          float size_divergence) {
   divergence = size_divergence;
+  x_hat = flow_x;
 }
 
 void mav_exercise_init(void) {
   // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgVISUAL_DETECTION(ABI_BROADCAST, &opticflow_ev, opticflow_cb);
+  AbiBindMsgOPTICAL_FLOW(FLOW_OPTICFLOW_CAM1_ID, &opticflow_ev, opticflow_cb);
 }
 
 void mav_exercise_periodic(void) {
@@ -77,9 +78,9 @@ void mav_exercise_periodic(void) {
 
   // compute current color thresholds
   // front_camera defined in airframe xml, with the video_capture module
-  int32_t divergence_threshold = 5;
+  float divergence_threshold = 0.3;
 
-  PRINT("divergence: %f  state: %d \n", divergence, navigation_state);
+  PRINT("divergence: %f  state: %d  estimated x: %d \n", divergence, navigation_state, x_hat);
 
   switch (navigation_state) {
     case SAFE:
