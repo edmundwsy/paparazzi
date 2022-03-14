@@ -145,13 +145,17 @@ void orange_avoider_guided_periodic(void)
 
   switch (navigation_state){
     case SAFE:
+      VERBOSE_PRINT("Current at (enu f) %f, %f\n", stateGetPositionEnu_f()->x, stateGetPositionEnu_f()->y);
+      VERBOSE_PRINT("Current at (enu i) %f, %f\n", stateGetPositionEnu_i()->x, stateGetPositionEnu_i()->y);
+      VERBOSE_PRINT("Current at (enu i) %f, %f\n", stateGetPositionNed_f()->x, stateGetPositionNed_f()->y);
+
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
         navigation_state = OBSTACLE_FOUND;
       } else {
-        // guidance_h_set_guided_body_vel(speed_sp, 0);
-        guidance_h_set_guided_pos(1.0f, 1.0f);
+        guidance_h_set_guided_body_vel(speed_sp, 0);
+        // guidance_h_set_guided_pos(1.0f, 1.0f);
       }
 
       break;
