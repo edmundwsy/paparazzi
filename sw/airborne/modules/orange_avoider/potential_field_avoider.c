@@ -63,7 +63,7 @@ enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;   // current
 int32_t color_count = 0;                // orange color count from color filter for obstacle detection
 int32_t floor_count = 0;                // green color count from color filter for floor detection
 int32_t floor_centroid = 0;             // floor detector centroid in y direction (along the horizon)
-float avoidance_heading_direction = 0;  // heading change direction for avoidance [rad/s]
+float avoidance_heading_direction = 0.3;  // heading change direction for avoidance [rad/s]
 int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that the way ahead if safe.
 
 const int16_t max_trajectory_confidence = 5;  // number of consecutive negative object detections to be sure we are obstacle free
@@ -145,28 +145,35 @@ void potential_field_avoider_periodic(void)
 
   switch (navigation_state){
     case SAFE:
+      VERBOSE_PRINT("======== SAFE ========\n");
+
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
         navigation_state = OBSTACLE_FOUND;
       } else {
         // guidance_h_set_guided_body_vel(speed_sp, 0);
-        guidance_h_set_guided_pos(3.0f, -0.5f);
+        // guidance_h.mode = GUIDANCE_H_MODE_MODULE;
+        guidance_h_set_guided_pos(2.0f, -0.1f);
+        guidance_h_set_guided_heading(-stateGetNedToBodyEulers_f()->psi / 6);
       }
 
       break;
     case OBSTACLE_FOUND:
       // stop
-      // guidance_h_set_guided_body_vel(0, 0);
-      guidance_h_set_guided_pos(-0.3f, 1.0f);
+      VERBOSE_PRINT("FSM: ======== OBSTACLE_FOUND ========\n");
+      guidance_h_set_guided_body_vel(0, 0);
+      guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi / 2);
+      // guidance_h_set_guided_pos(-0.3f, 1.0f);
 
       // randomly select new search direction
-      chooseRandomIncrementAvoidance();
+      // chooseRandomIncrementAvoidance();
 
       navigation_state = SAFE;
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
+      VERBOSE_PRINT("FSM: ======== SEARCH_FOR_SAFE_HEADING ========\n");
       guidance_h_set_guided_heading_rate(avoidance_heading_direction * oag_heading_rate);
 
       // make sure we have a couple of good readings before declaring the way safe
@@ -176,6 +183,7 @@ void potential_field_avoider_periodic(void)
       }
       break;
     case OUT_OF_BOUNDS:
+      VERBOSE_PRINT("FSM: ======== OUT_OF_BOUNDS ========\n");
       // stop
       guidance_h_set_guided_body_vel(0, 0);
 
@@ -186,10 +194,15 @@ void potential_field_avoider_periodic(void)
 
       break;
     case REENTER_ARENA:
+      VERBOSE_PRINT("FSM: ======== REENTER_ARENA ========\n");
       // force floor center to opposite side of turn to head back into arena
       if (floor_count >= floor_count_threshold && avoidance_heading_direction * floor_centroid_frac >= 0.f){
+        
+        guidance_h_set_guided_heading_rate(avoidance_heading_direction * RadOfDeg(15));
+        
         // return to heading mode
         guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi);
+        guidance_h_set_guided_pos(0.5f, 0.0f);
 
         // reset safe counter
         obstacle_free_confidence = 0;
