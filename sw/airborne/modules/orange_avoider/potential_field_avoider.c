@@ -5,7 +5,7 @@
  *
  */
 /**
- * @file "modules/orange_avoider/orange_avoider_guided.c"
+ * @file "modules/orange_avoider/potential_field_avoider.c"
  * @author Kirk Scheper
  * This module is an example module for the course AE4317 Autonomous Flight of Micro Air Vehicles at the TU Delft.
  * This module is used in combination with a color filter (cv_detect_color_object) and the guided mode of the autopilot.
@@ -13,7 +13,7 @@
  * (given by color_count_frac) we assume that there is an obstacle and we turn.
  *
  * The color filter settings are set using the cv_detect_color_object. This module can run multiple filters simultaneously
- * so you have to define which filter to use with the ORANGE_AVOIDER_VISUAL_DETECTION_ID setting.
+ * so you have to define which filter to use with the POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID setting.
  * This module differs from the simpler orange_avoider.xml in that this is flown in guided mode. This flight mode is
  * less dependent on a global positioning estimate as witht the navigation mode. This module can be used with a simple
  * speed estimate rather than a global position.
@@ -25,7 +25,7 @@
  * define which filter to use.
  */
 
-#include "modules/orange_avoider/orange_avoider_guided.h"
+#include "modules/orange_avoider/potential_field_avoider.h"
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "generated/airframe.h"
 #include "state.h"
@@ -33,10 +33,10 @@
 #include <stdio.h>
 #include <time.h>
 
-#define ORANGE_AVOIDER_VERBOSE TRUE
+#define POTENTIAL_FIELD_AVOIDER_VERBOSE TRUE
 
-#define PRINT(string,...) fprintf(stderr, "[orange_avoider_guided->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
-#if ORANGE_AVOIDER_VERBOSE
+#define PRINT(string,...) fprintf(stderr, "[potential_field_avoider->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+#if POTENTIAL_FIELD_AVOIDER_VERBOSE
 #define VERBOSE_PRINT PRINT
 #else
 #define VERBOSE_PRINT(...)
@@ -69,9 +69,9 @@ int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that 
 const int16_t max_trajectory_confidence = 5;  // number of consecutive negative object detections to be sure we are obstacle free
 
 // This call back will be used to receive the color count from the orange detector
-#ifndef ORANGE_AVOIDER_VISUAL_DETECTION_ID
-#error This module requires two color filters, as such you have to define ORANGE_AVOIDER_VISUAL_DETECTION_ID to the orange filter
-#error Please define ORANGE_AVOIDER_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe
+#ifndef POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID
+#error This module requires two color filters, as such you have to define POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to the orange filter
+#error Please define POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe
 #endif
 static abi_event color_detection_ev;
 static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
@@ -99,21 +99,21 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
 /*
  * Initialisation function
  */
-void orange_avoider_guided_init(void)
+void potential_field_avoider_init(void)
 {
   // Initialise random values
   srand(time(NULL));
   chooseRandomIncrementAvoidance();
 
   // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
+  AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
 }
 
 /*
  * Function that checks it is safe to move forwards, and then sets a forward velocity setpoint or changes the heading
  */
-void orange_avoider_guided_periodic(void)
+void potential_field_avoider_periodic(void)
 {
   // Only run the mudule if we are in the correct flight mode
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
@@ -151,18 +151,19 @@ void orange_avoider_guided_periodic(void)
         navigation_state = OBSTACLE_FOUND;
       } else {
         // guidance_h_set_guided_body_vel(speed_sp, 0);
-        guidance_h_set_guided_pos(1.0f, 1.0f);
+        guidance_h_set_guided_pos(3.0f, -0.5f);
       }
 
       break;
     case OBSTACLE_FOUND:
       // stop
-      guidance_h_set_guided_body_vel(0, 0);
+      // guidance_h_set_guided_body_vel(0, 0);
+      guidance_h_set_guided_pos(-0.3f, 1.0f);
 
       // randomly select new search direction
       chooseRandomIncrementAvoidance();
 
-      navigation_state = SEARCH_FOR_SAFE_HEADING;
+      navigation_state = SAFE;
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
