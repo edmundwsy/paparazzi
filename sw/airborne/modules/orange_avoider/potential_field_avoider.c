@@ -58,10 +58,12 @@ struct FloatVect2 potentialFieldUpdate(struct FloatVect2 goal, struct FloatVect2
 enum navigation_state_t { SAFE, PLANNING, WAIT_TARGET, EMERGENCY, OUT_OF_BOUNDS, REENTER_ARENA };
 
 // define settings
-// float oag_color_count_frac = 0.18f;  // obstacle detection threshold as a fraction of total of
-// image float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction of total of
-// image float oag_max_speed        = 0.5f;   // max flight speed [m/s] float oag_heading_rate     =
-// RadOfDeg(20.f);  // heading change setpoint for avoidance [rad/s]
+float K_ATTRACTION        = 1.5;  // strength of attraction force
+float K_REPULSION         = 10;   // strength of repulsion force
+float PF_GOAL_THRES       = 0.3;  // threshold near the goal
+float PF_MAX_ITER         = 10;   // max iteration of potential field iterations
+float PF_STEP_SIZE        = 0.5;    // step size between current states and new goal
+float PF_INFLUENCE_RADIUS = 2.0;  // distance where repulsion can take effect
 
 // define and initialise global variables
 enum navigation_state_t navigation_state = WAIT_TARGET;  // current state in state machine
@@ -86,23 +88,7 @@ struct FloatVect2 _obs[NUM_OBS] = {
 struct FloatVect2 _wps[NUM_WPS];
 // array of all goals
 struct FloatVect2 _goals[4] = {{2.0f, 2.0f}, {-2.0f, 2.0f}, {-2.0f, -2.0f}, {2.0f, -2.0f}};
-
-// _goals = {{2.0f, 2.0f}, {-2.0f, 2.0f}, {-2.0f, -2.0f}, {2.0f, -2.0f}};
-
-// TODO(@siyuan): determine these arguments based on ground truth
-float obs_0_x = 1.0f, obs_0_y = 0.5f;
-float obs_1_x = 1.0f, obs_1_y = 0.5f;
-float obs_2_x = 1.0f, obs_2_y = 0.5f;
-float obs_3_x = 1.0f, obs_3_y = 0.5f;
-float obs_4_x = 1.0f, obs_4_y = 0.5f;
-
-// Define waypoints
-// TODO(@siyuan): set these waypoints as parameters
-float wp_1_x = 2.5f, wp_1_y = 2.5f;
-float wp_2_x = 2.5f, wp_2_y = -2.5f;
-float wp_3_x = -2.5f, wp_3_y = -2.5f;
-float wp_4_x = -2.5f, wp_4_y = 2.5f;
-// TODO(@siyuan): randomly select waypoints
+struct FloatVect2 _goal;
 
 // This call back will be used to receive the color count from the orange detector
 // #ifndef POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID
@@ -133,37 +119,14 @@ float wp_4_x = -2.5f, wp_4_y = 2.5f;
 //   floor_centroid = pixel_y;
 // }
 
-#ifndef K_ATTRACTION
-#define K_ATTRACTION 1.5
-#endif
-
-#ifndef K_REPULSION
-#define K_REPULSION 100
-#endif
-
-#ifndef PF_GOAL_THRES
-#define PF_GOAL_THRES 0.5f
-#endif
-
-#ifndef PF_MAX_ITER
-#define PF_MAX_ITER 0.5f
-#endif
-
-#ifndef PF_STEP_SIZE
-#define PF_STEP_SIZE 2.0f
-#endif
-
-#ifndef PF_INFLUENCE_RADIUS
-#define PF_INFLUENCE_RADIUS 2.2f
-#endif
-
 /*
  * Initialisation function
  */
 void potential_field_avoider_init(void) {
   // Initialise random values
   srand(time(NULL));
-
+  _goal = _goals[0];
+  VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", _goal.x, _goal.y);
   // bind our colorfilter callbacks to receive the color filter outputs
   // AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
   //                            color_detection_cb);
@@ -173,22 +136,21 @@ void potential_field_avoider_init(void) {
 void potential_field_avoider_periodic(void) {
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
     navigation_state         = SAFE;
-    obstacle_free_confidence = 0;
+    VERBOSE_PRINT("[GUIDE] guidance_h.mode is %i \n", guidance_h.mode);
     return;
   }
-  struct FloatVect2 goal = _goals[0];
-  VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", goal.x, goal.y);
+
 
   switch (navigation_state) {
     case SAFE:
       VERBOSE_PRINT("======== SAFE ========\n");
       struct FloatVect2 state = {stateGetPositionNed_f()->x, stateGetPositionNed_f()->y};
       VERBOSE_PRINT("[state] (%.2f, %.2f)\n", state.x, state.y);
-      struct FloatVect2 wpt = potentialFieldUpdate(goal, state);
+      struct FloatVect2 wpt = potentialFieldUpdate(_goal, state);
 
       /* distance to the goal */
       struct FloatVect2 diff;
-      VECT2_DIFF(diff, goal, wpt);
+      VECT2_DIFF(diff, _goal, wpt);
       float distance = VECT2_NORM2(diff);
 
       if (distance > PF_GOAL_THRES) {
@@ -203,8 +165,8 @@ void potential_field_avoider_periodic(void) {
 
     case PLANNING:
       VERBOSE_PRINT("======== PLANNING ========\n");
-      goal = _goals[1];
-      VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", goal.x, goal.y);
+      _goal = _goals[1];
+      VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", _goal.x, _goal.y);
       navigation_state = SAFE;
       break;
 

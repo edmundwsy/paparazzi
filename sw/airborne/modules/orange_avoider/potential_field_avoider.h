@@ -6,23 +6,20 @@
  */
 /**
  * @file "modules/orange_avoider/potential_field_avoider.h"
- * @author Roland Meertens
- * Example on how to use the colours detected to avoid orange pole in the cyberzoo
+ * @author Siyuan Wu
+ * Example on how to use the potential field to avoid orange pole in the cyberzoo
  */
 
 #ifndef POTENTIAL_FIELD_AVOIDER_H
 #define POTENTIAL_FIELD_AVOIDER_H
 
 // settings
-extern float oag_color_count_frac;  // obstacle detection threshold as a fraction of total of image
-extern float oag_floor_count_frac;  // floor detection threshold as a fraction of total of image
-extern float oag_max_speed;         // max flight speed [m/s]
-extern float oag_heading_rate;      // heading rate setpoint [rad/s]
-extern float K_ATTRACTION;
-extern float K_REPULSION;
-extern float PF_GOAL_THRES;
-extern float PF_MAX_ITER;
-extern float PF_INFLUENCE_RADIUS;
+extern float K_ATTRACTION;         // strength of attraction force
+extern float K_REPULSION;          // strength of repulsion force
+extern float PF_GOAL_THRES;        // threshold near the goal
+extern float PF_MAX_ITER;          // max iteration of potential field iterations
+extern float PF_STEP_SIZE;         // step size between current states and new goal
+extern float PF_INFLUENCE_RADIUS;  // distance where repulsion can take effect
 
 // functions
 extern void potential_field_avoider_init(void);
@@ -61,4 +58,3 @@ extern void guided_goto_body_relative(float dx, float dy, float dyaw);
 extern void guided_move_ned(float vx, float vy, float heading);
 
 #endif
-
