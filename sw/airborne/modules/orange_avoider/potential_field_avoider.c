@@ -33,9 +33,11 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "firmwares/rotorcraft/autopilot_guided.h"
+#include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "generated/airframe.h"
+#include "math/pprz_algebra.h"
+#include "math/pprz_algebra_float.h"
 #include "modules/core/abi.h"
 #include "state.h"
 
@@ -49,27 +51,23 @@
 #define VERBOSE_PRINT(...)
 #endif
 
-uint8_t chooseRandomIncrementAvoidance(void);
+uint8_t           chooseRandomIncrementAvoidance(void);
+float             computeDistance(float obs_x, float obs_y);
+struct FloatVect2 potentialFieldUpdate(struct FloatVect2 goal, struct FloatVect2 curpt);
 
-enum navigation_state_t {
-  SAFE,
-  WAIT_TARGET,
-  EMERGENCY,
-  OUT_OF_BOUNDS,
-  REENTER_ARENA
-};
+enum navigation_state_t { SAFE, PLANNING, WAIT_TARGET, EMERGENCY, OUT_OF_BOUNDS, REENTER_ARENA };
 
 // define settings
-float oag_color_count_frac = 0.18f;  // obstacle detection threshold as a fraction of total of image
-float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction of total of image
-float oag_max_speed        = 0.5f;   // max flight speed [m/s]
-float oag_heading_rate     = RadOfDeg(20.f);  // heading change setpoint for avoidance [rad/s]
+// float oag_color_count_frac = 0.18f;  // obstacle detection threshold as a fraction of total of
+// image float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction of total of
+// image float oag_max_speed        = 0.5f;   // max flight speed [m/s] float oag_heading_rate     =
+// RadOfDeg(20.f);  // heading change setpoint for avoidance [rad/s]
 
 // define and initialise global variables
 enum navigation_state_t navigation_state = WAIT_TARGET;  // current state in state machine
-int32_t color_count    = 0;   // orange color count from color filter for obstacle detection
-int32_t floor_count    = 0;   // green color count from color filter for floor detection
-int32_t floor_centroid = 0;   // floor detector centroid in y direction (along the horizon)
+int32_t color_count    = 0;  // orange color count from color filter for obstacle detection
+int32_t floor_count    = 0;  // green color count from color filter for floor detection
+int32_t floor_centroid = 0;  // floor detector centroid in y direction (along the horizon)
 float   avoidance_heading_direction = 0.3;  // heading change direction for avoidance [rad/s]
 int16_t obstacle_free_confidence =
     0;  // a measure of how certain we are that the way ahead if safe.
@@ -78,8 +76,21 @@ const int16_t max_trajectory_confidence =
     5;  // number of consecutive negative object detections to be sure we are obstacle free
 
 // Define obstacle position
+#define NUM_OBS 5
+#define NUM_WPS 10
+// array of obstacles
 // TODO(@vision group): give these arguments
+struct FloatVect2 _obs[NUM_OBS] = {
+    {0.6f, 0.7f}, {2.5f, 2.8f}, {1.5f, -2.5f}, {-3.4f, -1.8f}, {-1.8f, 0.5f}};
+// array of all waypoints
+struct FloatVect2 _wps[NUM_WPS];
+// array of all goals
+struct FloatVect2 _goals[4] = {{2.0f, 2.0f}, {-2.0f, 2.0f}, {-2.0f, -2.0f}, {2.0f, -2.0f}};
+
+// _goals = {{2.0f, 2.0f}, {-2.0f, 2.0f}, {-2.0f, -2.0f}, {2.0f, -2.0f}};
+
 // TODO(@siyuan): determine these arguments based on ground truth
+float obs_0_x = 1.0f, obs_0_y = 0.5f;
 float obs_1_x = 1.0f, obs_1_y = 0.5f;
 float obs_2_x = 1.0f, obs_2_y = 0.5f;
 float obs_3_x = 1.0f, obs_3_y = 0.5f;
@@ -94,33 +105,57 @@ float wp_4_x = -2.5f, wp_4_y = 2.5f;
 // TODO(@siyuan): randomly select waypoints
 
 // This call back will be used to receive the color count from the orange detector
-#ifndef POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID
-#error This module requires two color filters, as such you have to define POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to the orange filter
-#error Please define POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe
-#endif
-static abi_event color_detection_ev;
-static void      color_detection_cb(uint8_t __attribute__((unused)) sender_id,
-                                    int16_t __attribute__((unused)) pixel_x,
-                                    int16_t __attribute__((unused)) pixel_y,
-                                    int16_t __attribute__((unused)) pixel_width,
-                                    int16_t __attribute__((unused)) pixel_height, int32_t quality,
-                                    int16_t __attribute__((unused)) extra) {
-  color_count = quality;
-}
+// #ifndef POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID
+// #error This module requires two color filters, as such you have to define
+// POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to the orange filter #error Please define
+// POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or
+// COLOR_OBJECT_DETECTION2_ID in your airframe #endif static abi_event color_detection_ev; static
+// void      color_detection_cb(uint8_t __attribute__((unused)) sender_id,
+//                                     int16_t __attribute__((unused)) pixel_x,
+//                                     int16_t __attribute__((unused)) pixel_y,
+//                                     int16_t __attribute__((unused)) pixel_width,
+//                                     int16_t __attribute__((unused)) pixel_height, int32_t
+//                                     quality, int16_t __attribute__((unused)) extra) {
+//   color_count = quality;
+// }
 
-#ifndef FLOOR_VISUAL_DETECTION_ID
-#error This module requires two color filters, as such you have to define FLOOR_VISUAL_DETECTION_ID to the orange filter
-#error Please define FLOOR_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe
+// #ifndef FLOOR_VISUAL_DETECTION_ID
+// #error This module requires two color filters, as such you have to define
+// FLOOR_VISUAL_DETECTION_ID to the orange filter #error Please define FLOOR_VISUAL_DETECTION_ID to
+// be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe #endif static
+// abi_event floor_detection_ev; static void      floor_detection_cb(uint8_t __attribute__((unused))
+// sender_id,
+//                                     int16_t __attribute__((unused)) pixel_x, int16_t pixel_y,
+//                                     int16_t __attribute__((unused)) pixel_width,
+//                                     int16_t __attribute__((unused)) pixel_height, int32_t
+//                                     quality, int16_t __attribute__((unused)) extra) {
+//   floor_count    = quality;
+//   floor_centroid = pixel_y;
+// }
+
+#ifndef K_ATTRACTION
+#define K_ATTRACTION 1.5
 #endif
-static abi_event floor_detection_ev;
-static void      floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
-                                    int16_t __attribute__((unused)) pixel_x, int16_t pixel_y,
-                                    int16_t __attribute__((unused)) pixel_width,
-                                    int16_t __attribute__((unused)) pixel_height, int32_t quality,
-                                    int16_t __attribute__((unused)) extra) {
-  floor_count    = quality;
-  floor_centroid = pixel_y;
-}
+
+#ifndef K_REPULSION
+#define K_REPULSION 100
+#endif
+
+#ifndef PF_GOAL_THRES
+#define PF_GOAL_THRES 0.5f
+#endif
+
+#ifndef PF_MAX_ITER
+#define PF_MAX_ITER 0.5f
+#endif
+
+#ifndef PF_STEP_SIZE
+#define PF_STEP_SIZE 2.0f
+#endif
+
+#ifndef PF_INFLUENCE_RADIUS
+#define PF_INFLUENCE_RADIUS 2.2f
+#endif
 
 /*
  * Initialisation function
@@ -128,27 +163,49 @@ static void      floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
 void potential_field_avoider_init(void) {
   // Initialise random values
   srand(time(NULL));
-  chooseRandomIncrementAvoidance();
 
   // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
-                             color_detection_cb);
-  AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  // AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
+  //                            color_detection_cb);
+  // AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
 }
 
 void potential_field_avoider_periodic(void) {
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
-    navigation_state         = WAIT_TARGET;
+    navigation_state         = SAFE;
     obstacle_free_confidence = 0;
     return;
   }
+  struct FloatVect2 goal = _goals[0];
+  VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", goal.x, goal.y);
+
   switch (navigation_state) {
     case SAFE:
       VERBOSE_PRINT("======== SAFE ========\n");
+      struct FloatVect2 state = {stateGetPositionNed_f()->x, stateGetPositionNed_f()->y};
+      VERBOSE_PRINT("[state] (%.2f, %.2f)\n", state.x, state.y);
+      struct FloatVect2 wpt = potentialFieldUpdate(goal, state);
 
-      // TODO(@siyuan): write algorithms
+      /* distance to the goal */
+      struct FloatVect2 diff;
+      VECT2_DIFF(diff, goal, wpt);
+      float distance = VECT2_NORM2(diff);
+
+      if (distance > PF_GOAL_THRES) {
+        guidance_h_set_guided_pos(wpt.x, wpt.y);
+      } else {
+        navigation_state = PLANNING;
+      }
+
       // TODO(@siyuan): understand how controller controls to set points
       // TODO(@siyuan): understand the execution time
+      break;
+
+    case PLANNING:
+      VERBOSE_PRINT("======== PLANNING ========\n");
+      goal = _goals[1];
+      VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", goal.x, goal.y);
+      navigation_state = SAFE;
       break;
 
     case EMERGENCY:
@@ -167,7 +224,7 @@ void potential_field_avoider_periodic(void) {
       break;
 
     case OUT_OF_BOUNDS:
-    // TODO(@vision): detect out of bounds using bottom camera
+      // TODO(@vision): detect out of bounds using bottom camera
       VERBOSE_PRINT("FSM: ======== OUT_OF_BOUNDS ========\n");
       // stop
       guidance_h_set_guided_body_vel(0, 0);
@@ -181,8 +238,9 @@ void potential_field_avoider_periodic(void) {
     case REENTER_ARENA:
       VERBOSE_PRINT("FSM: ======== REENTER_ARENA ========\n");
       // force floor center to opposite side of turn to head back into arena
-      if (floor_count >= floor_count_threshold &&
-          avoidance_heading_direction * floor_centroid_frac >= 0.f) {
+      // if (floor_count >= floor_count_threshold &&
+      //     avoidance_heading_direction * floor_centroid_frac >= 0.f) {
+      if (stateGetPositionEnu_f()->x > 2.5 || stateGetPositionEnu_f()->y > 2.5) {
         guidance_h_set_guided_heading_rate(avoidance_heading_direction * RadOfDeg(15));
 
         // return to heading mode
@@ -201,156 +259,105 @@ void potential_field_avoider_periodic(void) {
   }
 }
 
-/*
- * Function that checks it is safe to move forwards, and then sets a forward velocity setpoint or
- * changes the heading
- */
-// void potential_field_avoider_periodic(void) {
-//   // Only run the mudule if we are in the correct flight mode
-//   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
-//     navigation_state         = SEARCH_FOR_SAFE_HEADING;
-//     obstacle_free_confidence = 0;
-//     return;
-//   }
-
-//   // compute current color thresholds
-//   int32_t color_count_threshold =
-//       oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
-//   int32_t floor_count_threshold =
-//       oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
-//   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
-
-//   VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count,
-//   color_count_threshold,
-//                 navigation_state);
-//   VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-//   VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
-
-//   // update our safe confidence using color threshold
-//   if (color_count < color_count_threshold) {
-//     obstacle_free_confidence++;
-//   } else {
-//     obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
-//   }
-
-//   // bound obstacle_free_confidence
-//   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
-
-//   float speed_sp = fminf(oag_max_speed, 0.2f * obstacle_free_confidence);
-
-//   switch (navigation_state) {
-//     case SAFE:
-//       VERBOSE_PRINT("======== SAFE ========\n");
-
-//       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12) {
-//         navigation_state = OUT_OF_BOUNDS;
-//       } else if (obstacle_free_confidence == 0) {
-//         navigation_state = OBSTACLE_FOUND;
-//       } else {
-//         // guidance_h_set_guided_body_vel(speed_sp, 0);
-//         // guidance_h.mode = GUIDANCE_H_MODE_MODULE;
-//         guidance_h_set_guided_pos(2.0f, -0.1f);
-//         guidance_h_set_guided_heading(-stateGetNedToBodyEulers_f()->psi / 6);
-//       }
-
-//       break;
-//     case OBSTACLE_FOUND:
-//       // stop
-//       VERBOSE_PRINT("FSM: ======== OBSTACLE_FOUND ========\n");
-//       guidance_h_set_guided_body_vel(0, 0);
-//       guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi / 2);
-//       // guidance_h_set_guided_pos(-0.3f, 1.0f);
-
-//       // randomly select new search direction
-//       // chooseRandomIncrementAvoidance();
-
-//       navigation_state = SAFE;
-
-//       break;
-//     case SEARCH_FOR_SAFE_HEADING:
-//       VERBOSE_PRINT("FSM: ======== SEARCH_FOR_SAFE_HEADING ========\n");
-//       guidance_h_set_guided_heading_rate(avoidance_heading_direction * oag_heading_rate);
-
-//       // make sure we have a couple of good readings before declaring the way safe
-//       if (obstacle_free_confidence >= 2) {
-//         guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi);
-//         navigation_state = SAFE;
-//       }
-//       break;
-//     case OUT_OF_BOUNDS:
-//       VERBOSE_PRINT("FSM: ======== OUT_OF_BOUNDS ========\n");
-//       // stop
-//       guidance_h_set_guided_body_vel(0, 0);
-
-//       // start turn back into arena
-//       guidance_h_set_guided_heading_rate(avoidance_heading_direction * RadOfDeg(15));
-
-//       navigation_state = REENTER_ARENA;
-
-//       break;
-//     case REENTER_ARENA:
-//       VERBOSE_PRINT("FSM: ======== REENTER_ARENA ========\n");
-//       // force floor center to opposite side of turn to head back into arena
-//       if (floor_count >= floor_count_threshold &&
-//           avoidance_heading_direction * floor_centroid_frac >= 0.f) {
-//         guidance_h_set_guided_heading_rate(avoidance_heading_direction * RadOfDeg(15));
-
-//         // return to heading mode
-//         guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi);
-//         guidance_h_set_guided_pos(0.5f, 0.0f);
-
-//         // reset safe counter
-//         obstacle_free_confidence = 0;
-
-//         // ensure direction is safe before continuing
-//         navigation_state = SAFE;
-//       }
-//       break;
-//     default:
-//       break;
-//   }
-//   return;
-// }
-
-/*
- * Sets the variable 'incrementForAvoidance' randomly positive/negative
- */
-// uint8_t chooseRandomIncrementAvoidance(void) {
-//   // Randomly choose CW or CCW avoiding direction
-//   if (rand() % 2 == 0) {
-//     avoidance_heading_direction = 1.f;
-//     VERBOSE_PRINT("Set avoidance increment to: %f\n",
-//                   avoidance_heading_direction * oag_heading_rate);
-//   } else {
-//     avoidance_heading_direction = -1.f;
-//     VERBOSE_PRINT("Set avoidance increment to: %f\n",
-//                   avoidance_heading_direction * oag_heading_rate);
-//   }
-//   return false;
-// }
-
-
 void guided_goto_ned(float x, float y, float heading) {
   guidance_h_set_guided_pos(x, y);
   guidance_h_set_guided_heading(heading);
 }
 
 void guided_goto_ned_relative(float dx, float dy, float dyaw) {
-    float x = stateGetPositionNed_f()->x + dx;
-    float y = stateGetPositionNed_f()->y + dy;
-    float heading = stateGetNedToBodyEulers_f()->psi + dyaw;
-    guided_goto_ned(x, y, heading);
+  float x       = stateGetPositionNed_f()->x + dx;
+  float y       = stateGetPositionNed_f()->y + dy;
+  float heading = stateGetNedToBodyEulers_f()->psi + dyaw;
+  guided_goto_ned(x, y, heading);
 }
 
 void guided_goto_body_relative(float dx, float dy, float dyaw) {
-    float psi = stateGetNedToBodyEulers_f()->psi;
-    float x = stateGetPositionNed_f()->x + cosf(-psi) * dx + sinf(-psi) * dy;
-    float y = stateGetPositionNed_f()->y - sinf(-psi) * dx + cosf(-psi) * dy;
-    float heading = psi + dyaw;
-    guided_goto_ned(x, y, heading);
+  float psi     = stateGetNedToBodyEulers_f()->psi;
+  float x       = stateGetPositionNed_f()->x + cosf(-psi) * dx + sinf(-psi) * dy;
+  float y       = stateGetPositionNed_f()->y - sinf(-psi) * dx + cosf(-psi) * dy;
+  float heading = psi + dyaw;
+  guided_goto_ned(x, y, heading);
 }
 
-void guided_move_ned(float vx, float vy, float heading) { 
+void guided_move_ned(float vx, float vy, float heading) {
   guidance_h_set_guided_vel(vx, vy);
   guidance_h_set_guided_heading(heading);
+}
+
+float computeDistance(float obs_x, float obs_y) {
+  float x0 = stateGetPositionNed_f()->x;
+  float y0 = stateGetPositionNed_f()->y;
+  return sqrtf(SQUARE(x0 - obs_x) + SQUARE(y0 - obs_y));
+}
+
+struct FloatVect2 attractive(struct FloatVect2 goal, struct FloatVect2 current) {
+  struct FloatVect2 att;
+  VECT2_DIFF(att, goal, current);
+  VECT2_SMUL(att, att, K_ATTRACTION);
+  return att;
+}
+
+struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
+  struct FloatVect2 rep, tmp, dir;
+  VECT2_ASSIGN(rep, 0.0f, 0.0f);
+  for (int i = 0; i < NUM_OBS; i++) {
+    VECT2_DIFF(tmp, current, obs[i]);
+    float distance = VECT2_NORM2(tmp);
+    if (distance > PF_INFLUENCE_RADIUS) {
+      continue;
+    } else {
+      VECT2_SDIV(dir, tmp, distance);
+      VERBOSE_PRINT("[REP] distance is (%.2f)\n", distance);
+      float u = K_REPULSION * (1.0f / distance - 1.0f / PF_INFLUENCE_RADIUS) / (SQUARE(distance));
+      VERBOSE_PRINT("[REP] repulsion gain is (%.2f)\n", u);
+      VECT2_SMUL(dir, dir, u);
+      VECT2_ADD(rep, dir);
+    }
+  }
+  VERBOSE_PRINT("[REP] computed repulsion direction is (%.2f, %.2f)\n", rep.x, rep.y);
+  return rep;
+}
+
+struct FloatVect2 potentialFieldUpdate(struct FloatVect2 goal, struct FloatVect2 curpt) {
+  struct FloatVect2 newpt;               // new position
+  struct FloatVect2 force;               // potential force
+  struct FloatVect2 diret;               // direction
+  float             dis_to_goal = 0.0f;  // distance to goal
+  int               iter        = 0;
+
+  struct FloatVect2 att = attractive(goal, curpt);
+  struct FloatVect2 rep = repulsion(&_obs, curpt);
+  VECT2_SUM(force, att, rep);
+  VECT2_SDIV(force, force, sqrtf(VECT2_NORM2(force)));
+  VERBOSE_PRINT("[UPDATE] computed force as (%.2f, %.2f)\n", force.x, force.y);
+  VECT2_SMUL(diret, force, PF_STEP_SIZE);
+  VECT2_SUM(newpt, curpt, diret);
+  VERBOSE_PRINT("[UPDATE] computed new waypoint as (%.2f, %.2f)\n", newpt.x, newpt.y);
+  return newpt;
+}
+
+bool potentialFieldPathPlan(struct FloatVect2 goal, struct FloatVect2 curpt) {
+  // struct FloatVect2 curpt;               // current position
+  struct FloatVect2 newpt;               // new position
+  struct FloatVect2 force;               // potential force
+  struct FloatVect2 diret;               // direction
+  float             dis_to_goal = 0.0f;  // distance to goal
+  int               iter        = 0;
+  while ((iter < PF_MAX_ITER) && dis_to_goal > PF_GOAL_THRES) {
+    struct FloatVect2 att = attractive(goal, curpt);
+    struct FloatVect2 rep = repulsion(&_obs, curpt);
+    VECT2_SUM(force, att, rep);
+    VECT2_SDIV(force, force, VECT2_NORM2(force));
+    VECT2_SMUL(diret, force, PF_STEP_SIZE);
+    VECT2_SUM(newpt, curpt, diret);
+    iter++;
+    struct FloatVect2 diff;
+    VECT2_DIFF(diff, goal, newpt);
+    dis_to_goal = VECT2_NORM2(diff);
+  }
+
+  if (dis_to_goal <= PF_GOAL_THRES) {
+    return true;
+  }
+  return false;
 }

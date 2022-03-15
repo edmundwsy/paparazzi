@@ -18,6 +18,8 @@
         "colorfilter.h": "c",
         "flight_plan.h": "c",
         "state.h": "c",
-        "potential_field_avoider.h": "c"
+        "potential_field_avoider.h": "c",
+        "pprz_algebra_float.h": "c",
+        "math.h": "c"
     },
 }
