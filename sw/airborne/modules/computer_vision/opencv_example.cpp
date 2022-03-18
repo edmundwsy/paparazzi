@@ -33,31 +33,30 @@ using namespace std;
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace cv;
 #include "opencv_image_functions.h"
+#include <vector>
 
 
 int opencv_example(char *img, int width, int height)
 {
   // Create a new image, using the original bebop image.
   Mat M(height, width, CV_8UC2, img);
-  Mat image;
+  Mat image, image_tmp;
 
-#if OPENCVDEMO_GRAYSCALE
-  //  Grayscale image example
-  cvtColor(M, image, CV_YUV2GRAY_Y422);
-  // Canny edges, only works with grayscale image
-  int edgeThresh = 35;
-  Canny(image, image, edgeThresh, edgeThresh * 3);
+  cvtColor(M, image, COLOR_YUV2BGR_Y422);
+  blur(image, image, Size(3, 3));
+  bilateralFilter(image, image_tmp, 15, 25, 25);
+  Scalar low = Scalar(50, 85, 80);
+  Scalar high = Scalar(70, 105, 100);
+  inRange(image_tmp, low, high, image);
   // Convert back to YUV422, and put it in place of the original image
-  grayscale_opencv_to_yuv422(image, img, width, height);
-#else // OPENCVDEMO_GRAYSCALE
-  // Color image example
-  // Convert the image to an OpenCV Mat
-  cvtColor(M, image, CV_YUV2BGR_Y422);
-  // Blur it, because we can
-  blur(image, image, Size(5, 5));
-  // Convert back to YUV422 and put it in place of the original image
   colorbgr_opencv_to_yuv422(image, img, width, height);
-#endif // OPENCVDEMO_GRAYSCALE
-
+  
   return 0;
+}
+
+void opencv_example_init(void) {
+  // bind our colorfilter callbacks to receive the color filter outputs
+}
+
+void opencv_example_periodic(void) {
 }
