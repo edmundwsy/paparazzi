@@ -45,11 +45,11 @@ int opencv_example(char *img, int width, int height)
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
   blur(image, image, Size(3, 3));
   bilateralFilter(image, image_tmp, 15, 25, 25);
-  Scalar low = Scalar(50, 85, 80);
-  Scalar high = Scalar(70, 105, 100);
+  Scalar low = Scalar(0, 80, 50);
+  Scalar high = Scalar(20, 255, 100);
   inRange(image_tmp, low, high, image);
   // Convert back to YUV422, and put it in place of the original image
-  colorbgr_opencv_to_yuv422(image, img, width, height);
+  grayscale_opencv_to_yuv422(image, img, width, height);
   
   return 0;
 }
