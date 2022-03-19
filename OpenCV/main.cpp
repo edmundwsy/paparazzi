@@ -70,13 +70,18 @@ void grayscale_opencv_to_yuv422(Mat image, char *img, int width, int height) {
 }
 
 int main() {
-  Mat img_ori = imread("imgs/359709858.jpg");
+  // Mat img_ori = imread("");
+  Mat img_ori = imread("imgs/361876501.jpg");
+  // Mat img_ori = imread("imgs/376609733.jpg");
+  // Mat img_ori = imread("imgs/368709783.jpg");
+  // Mat img_ori = imread("imgs/372043080.jpg");
+  // Mat img_ori = imread("imgs/347443312.jpg");
+  // Mat img_ori = imread("imgs/356009880.jpg");
   rotate(img_ori, img_ori, cv::ROTATE_90_COUNTERCLOCKWISE);
   int width  = img_ori.cols;
   int height = img_ori.rows;
 
   std::cout << "width " << width << " height " << height << std::endl;
-
 
   Mat image, image_tmp, src;
   cvtColor(img_ori, image, COLOR_RGB2BGR);
@@ -86,8 +91,8 @@ int main() {
   Scalar high = Scalar(255, 255, 255);
   cv::inRange(image_tmp, low, high, image);
 
-  high_resolution_clock::time_point tic = high_resolution_clock::now();
-  Mat kernel = getStructuringElement(MORPH_RECT, Size(4, 4));
+  high_resolution_clock::time_point tic    = high_resolution_clock::now();
+  Mat                               kernel = getStructuringElement(MORPH_RECT, Size(8, 8));
   morphologyEx(image, src, MORPH_OPEN, kernel);
 
   // std::cout << src.type() << src.channels() << endl;
@@ -98,10 +103,24 @@ int main() {
   int num_labels = connectedComponentsWithStats(src, labels, stats, centroids, 4);
   cout << "found connected components: " << num_labels << endl;
 
-  high_resolution_clock::time_point toc = high_resolution_clock::now();
+  // Filtering
+  int *valid_labels = new (int[num_labels]);
+  for (int i = 0; i < num_labels; i++) {
+    int width  = stats.at<int>(i, CC_STAT_WIDTH);
+    int height = stats.at<int>(i, CC_STAT_HEIGHT);
 
-  duration<double> time_span = duration_cast<duration<double>>(toc - tic);
-  std::cout << "Duration: " << time_span.count() << "seconds" << std::endl;
+    if (width < 30 || height < 30 || float(width / height) > 5) {
+      valid_labels[i] = 0;
+    } else {
+      valid_labels[i] = i;
+    }
+    std::cout << valid_labels[i] << ' ';
+  }
+  std::cout << std::endl;
+
+  high_resolution_clock::time_point toc       = high_resolution_clock::now();
+  duration<double>                  time_span = duration_cast<duration<double>>(toc - tic);
+  std::cout << "Duration: " << time_span.count() << " seconds" << std::endl;
 
   vector<Vec3b> colors(num_labels);
   // generate background color => black
@@ -118,7 +137,7 @@ int main() {
   for (int row = 0; row < h; row++) {
     for (int col = 0; col < w; col++) {
       int label = labels.at<int>(row, col);
-      if (label == 0) {
+      if (valid_labels[label] == 0) {
         continue;
       }
       dst1.at<Vec3b>(row, col) = colors[label];
