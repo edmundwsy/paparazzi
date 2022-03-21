@@ -44,8 +44,10 @@ RNG rng(42);
 Mat stats, centroids;
 Mat labels;
 Mat dst1;
-int opencv_example(char *img, int width, int height)
-{
+int valid_labels[20] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+Vec3b colors[20];
+
+int opencv_example(char *img, int width, int height){
 
   Mat M(height, width, CV_8UC2, img);
   
@@ -68,36 +70,16 @@ int opencv_example(char *img, int width, int height)
       }
     }
   }
-  high_resolution_clock::time_point tic    = high_resolution_clock::now();
   morphologyEx(image, src, MORPH_OPEN, kernel);
-
-  // // std::cout << src.type() << src.channels() << endl;
-  // // connected component labeling
-  
   labels     = Mat::zeros(src.size(), src.type());
-  int num_labels = connectedComponentsWithStats(src, labels, stats, centroids, 4);
-  // cout << "found connected components: " << num_labels << endl;
+  int num_labels = min(connectedComponentsWithStats(src, labels, stats, centroids, 4),20);
 
   // Filtering
-  int *valid_labels = new (int[num_labels]);
   for (int i = 0; i < num_labels; i++) {
-    int width  = stats.at<int>(i, CC_STAT_WIDTH);
-    int height = stats.at<int>(i, CC_STAT_HEIGHT);
-
-    if (width < 30 || height < 30 || float(width / height) > 5) {
-      valid_labels[i] = 0;
-    } else {
+    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5)) {
       valid_labels[i] = i;
     }
-    std::cout << valid_labels[i] << ' ';
   }
-  std::cout << std::endl;
-
-  high_resolution_clock::time_point toc       = high_resolution_clock::now();
-  duration<double>                  time_span = duration_cast<duration<double>>(toc - tic);
-  std::cout << "Duration: " << time_span.count() << " seconds" << std::endl;
-
-  vector<Vec3b> colors(num_labels);
   // generate background color => black
   colors[0] = Vec3b(0, 0, 0);
   // generate region color => random
@@ -108,11 +90,10 @@ int opencv_example(char *img, int width, int height)
   dst1 = Mat::zeros(src.size(), CV_8UC3);
   for (int row = 0; row < src.rows; row++) {
     for (int col = 0; col < src.cols; col++) {
-      int label = labels.at<int>(row, col);
-      if (valid_labels[label] == 0) {
+      if (valid_labels[labels.at<int>(row, col)] == -1) {
         continue;
       }
-      dst1.at<Vec3b>(row, col) = colors[label];
+      dst1.at<Vec3b>(row, col) = colors[labels.at<int>(row, col)];
     }
   }
 
@@ -145,9 +126,8 @@ int opencv_example(char *img, int width, int height)
   return 0;
 }
 
-void opencv_example_init(void) {
+void opencv_example_init(void){};
   // bind our colorfilter callbacks to receive the color filter outputs
-}
 
-void opencv_example_periodic(void) {
-}
+
+void opencv_example_periodic(void){};
