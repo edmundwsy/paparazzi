@@ -22,8 +22,7 @@
  * @author C. De Wagter
  * A simple module showing what you can do with opencv on the bebop.
  */
-
-
+#include "modules/core/abi.h"
 #include "opencv_example.h"
 #include <chrono>
 #include <cmath>
@@ -48,9 +47,11 @@ Mat labels;
 Mat dst1;
 int valid_labels[20] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 Vec3b colors[20];
+int obs_num_detected = 0;
+
 
 int opencv_example(char *img, int width, int height){
-
+  obs_num_detected = 0;
   Mat M(height, width, CV_8UC2, img);
   
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
@@ -81,6 +82,7 @@ int opencv_example(char *img, int width, int height){
   for (int i = 0; i < num_labels; i++) {
     if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
+      obs_num_detected++;
     }
   }
   // generate background color => black
@@ -110,7 +112,8 @@ int opencv_example(char *img, int width, int height){
   }
   
   colorbgr_opencv_to_yuv422(dst1, img, width, height);
-  
+
+  AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,0,0,0,0,0,0,0,0,0,0);
   return 0;
 }
 

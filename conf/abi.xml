@@ -215,9 +215,19 @@
       <field name="test" type="int8_t">test info</field>
     </message>
 
-    <!-- <message name="OBSTACLE_ESTIMATION" id="31">
-      <field name="obstacle_list" type="struct Obstacles">obstacle info</field>
-    </message> -->
+    <message name="OBSTACLE_ESTIMATION" id="31">
+      <field name="obstacle_num" type="int"/>
+      <field name="obstacle_x_1" type="float"/>
+      <field name="obstacle_y_1" type="float"/>
+      <field name="obstacle_x_2" type="float"/>
+      <field name="obstacle_y_2" type="float"/>
+      <field name="obstacle_x_3" type="float"/>
+      <field name="obstacle_y_3" type="float"/>
+      <field name="obstacle_x_4" type="float"/>
+      <field name="obstacle_y_4" type="float"/>
+      <field name="obstacle_x_5" type="float"/>
+      <field name="obstacle_y_5" type="float"/>
+    </message>
 
   </msg_class>
 
