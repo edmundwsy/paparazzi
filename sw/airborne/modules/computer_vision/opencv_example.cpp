@@ -34,11 +34,13 @@ using namespace std;
 using namespace cv;
 #include "opencv_image_functions.h"
 using namespace std::chrono;
-Mat image, image_tmp, src, image2, image1;
+Mat image, image_tmp, src, image2, image1, image3;
 Scalar low = Scalar(30, 80, 120);
 Scalar high = Scalar(110, 255, 180);
 Scalar low2 = Scalar(0, 0, 0);
 Scalar high2 = Scalar(150, 150, 150);
+Scalar low3 = Scalar(180, 150, 50);
+Scalar high3 = Scalar(200, 170, 70);
 Mat kernel = getStructuringElement(MORPH_RECT, Size(8, 8));
 RNG rng(42);
 Mat stats, centroids;
@@ -60,7 +62,8 @@ int opencv_example(char *img, int width, int height){
   // bilateralFilter(image, image_tmp, 15, 25, 25);
   cv::inRange(image, low, high, image1);
   cv::inRange(image, low2, high2, image2);
-  image = 255 - (image2 | image1);
+  cv::inRange(image, low3, high3, image3);
+  image = 255 - (image2 | image1 | image3);
   for (int i=0;i<M.rows;i++)      
   {
     for (int j=0;j<M.cols;j++)
@@ -76,7 +79,7 @@ int opencv_example(char *img, int width, int height){
 
   // Filtering
   for (int i = 0; i < num_labels; i++) {
-    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5)) {
+    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
     }
   }
@@ -107,21 +110,6 @@ int opencv_example(char *img, int width, int height){
   }
   
   colorbgr_opencv_to_yuv422(dst1, img, width, height);
-
-
-
-  // // Create a new image, using the original bebop image.
-  // Mat M(height, width, CV_8UC2, img);
-  // Mat image, image_tmp;
-
-  // cvtColor(M, image, COLOR_YUV2BGR_Y422);
-  // blur(image, image, Size(3, 3));
-  // bilateralFilter(image, image_tmp, 15, 25, 25);
-  // Scalar low = Scalar(0, 80, 50);
-  // Scalar high = Scalar(20, 255, 100);
-  // inRange(image_tmp, low, high, image);
-  // // Convert back to YUV422, and put it in place of the original image
-  // grayscale_opencv_to_yuv422(image, img, width, height);
   
   return 0;
 }
