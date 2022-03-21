@@ -538,4 +538,12 @@
 #define CLOUD_SENSOR_ID 1
 #endif
 
+
+/*
+* Obstacle_data (message 31)
+*/
+#ifndef OBSTACLE_SENSOR_ID
+#define OBSTACLE_SENSOR_ID 1
+#endif
+
 #endif /* ABI_SENDER_IDS_H */

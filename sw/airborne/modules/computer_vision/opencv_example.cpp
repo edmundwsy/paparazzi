@@ -25,7 +25,6 @@
 
 
 #include "opencv_example.h"
-
 #include <chrono>
 #include <cmath>
 using namespace std;
@@ -35,51 +34,32 @@ using namespace std;
 using namespace cv;
 #include "opencv_image_functions.h"
 using namespace std::chrono;
-
-cv::Mat depth_estimate(char *img, int width, int height)
-{
-  cv::Mat M(height, width, CV_8UC2, img);
-  cv::Mat imgBlur, imgHSV, imgThresh, imgDepth, heatImg;
-
-  // Tranpose the vertical image into horizontal image
-
-  cv::Size dsize = cv::Size(260, 120);
-  // cv::resize(image, image, dsize, 0, 0, CV_INTER_LINEAR);
-  cv::GaussianBlur(M, imgBlur, cv::Size(5, 5), 1);
-
-  // Color Type Transformation
-  cv::cvtColor(imgBlur, imgHSV, CV_YUV2BGR_Y422);
-  cv::cvtColor(imgHSV, imgHSV, CV_BGR2HSV);
-
-  cv::inRange(imgHSV, cv::Scalar(20, 43, 46), cv::Scalar(60, 255, 255), imgHSV);
-
-  cv::distanceTransform(imgHSV, imgDepth, CV_DIST_L2, 3);
-  cv::normalize(imgDepth, imgDepth, 1, 255, cv::NORM_MINMAX);
-  /*
-  cv::convertScaleAbs(imgDepth, imgDepth);
-  cv::normalize(imgDepth, imgDepth, 1, 255, cv::NORM_MINMAX);
-  cv::applyColorMap(imgDepth, heatImg, cv::COLORMAP_JET);
-  */
-  return imgHSV;
-}
-
+Mat image, image_tmp, src, image2, image1;
+Scalar low = Scalar(30, 80, 120);
+Scalar high = Scalar(110, 255, 180);
+Scalar low2 = Scalar(0, 0, 0);
+Scalar high2 = Scalar(150, 150, 150);
+Mat kernel = getStructuringElement(MORPH_RECT, Size(8, 8));
+RNG rng(42);
+Mat stats, centroids;
+Mat labels;
+Mat dst1;
 int opencv_example(char *img, int width, int height)
 {
 
   Mat M(height, width, CV_8UC2, img);
-  Mat image, image_tmp, src, image2;
+  
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
-  blur(image, image, Size(3, 3));
-  bilateralFilter(image, image_tmp, 15, 25, 25);
-  Scalar low = Scalar(0, 80, 0);
-  Scalar high = Scalar(255, 255, 255);
-  cv::inRange(image_tmp, low, high, image);
-  Scalar low2 = Scalar(0, 0, 0);
-  Scalar high2 = Scalar(50, 50, 50);
-  cv::inRange(image_tmp, low2, high2, image2);
-  image = 255 - (image2 | image);
 
-  for (int i=0;i<M.rows;i++)        //遍历每一行每一列并设置其像素值
+// TODO: undistort
+
+
+  blur(image, image, Size(5, 5));
+  // bilateralFilter(image, image_tmp, 15, 25, 25);
+  cv::inRange(image, low, high, image1);
+  cv::inRange(image, low2, high2, image2);
+  image = 255 - (image2 | image1);
+  for (int i=0;i<M.rows;i++)      
   {
     for (int j=0;j<M.cols;j++)
     {
@@ -88,19 +68,15 @@ int opencv_example(char *img, int width, int height)
       }
     }
   }
-
-
   high_resolution_clock::time_point tic    = high_resolution_clock::now();
-  Mat                               kernel = getStructuringElement(MORPH_RECT, Size(8, 8));
   morphologyEx(image, src, MORPH_OPEN, kernel);
 
-  // std::cout << src.type() << src.channels() << endl;
-  // connected component labeling
-  RNG rng(42);
-  Mat stats, centroids;
-  Mat labels     = Mat::zeros(src.size(), src.type());
+  // // std::cout << src.type() << src.channels() << endl;
+  // // connected component labeling
+  
+  labels     = Mat::zeros(src.size(), src.type());
   int num_labels = connectedComponentsWithStats(src, labels, stats, centroids, 4);
-  cout << "found connected components: " << num_labels << endl;
+  // cout << "found connected components: " << num_labels << endl;
 
   // Filtering
   int *valid_labels = new (int[num_labels]);
@@ -129,12 +105,9 @@ int opencv_example(char *img, int width, int height)
     colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
   }
   // display components, drawing
-  Mat dst1 = Mat::zeros(src.size(), CV_8UC3);
-  int w    = src.cols;
-  int h    = src.rows;
-  std::cout << "width " << w << " height " << h << std::endl;
-  for (int row = 0; row < h; row++) {
-    for (int col = 0; col < w; col++) {
+  dst1 = Mat::zeros(src.size(), CV_8UC3);
+  for (int row = 0; row < src.rows; row++) {
+    for (int col = 0; col < src.cols; col++) {
       int label = labels.at<int>(row, col);
       if (valid_labels[label] == 0) {
         continue;
@@ -145,22 +118,14 @@ int opencv_example(char *img, int width, int height)
 
   // static and drawing
   for (int i = 1; i < num_labels; i++) {
-    Vec2d pt     = centroids.at<Vec2d>(i, 0);
-    int   x      = stats.at<int>(i, CC_STAT_LEFT);
-    int   y      = stats.at<int>(i, CC_STAT_TOP);
-    int   width  = stats.at<int>(i, CC_STAT_WIDTH);
-    int   height = stats.at<int>(i, CC_STAT_HEIGHT);
-    int   area   = stats.at<int>(i, CC_STAT_AREA);
-    printf("area : %d, center point(%.2f, %.2f)\n", area, pt[0], pt[1]);       //面积信息
-    if(area > 1000){
-      circle(dst1, Point(pt[0], pt[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
-      rectangle(dst1, Rect(x, y, width, height), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
+    if(stats.at<int>(i, CC_STAT_AREA) > 1000){
+      circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
+      rectangle(dst1, Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP), stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
     }
     
   }
-
+  
   colorbgr_opencv_to_yuv422(dst1, img, width, height);
-
 
 
 

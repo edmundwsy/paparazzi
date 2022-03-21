@@ -215,6 +215,10 @@
       <field name="test" type="int8_t">test info</field>
     </message>
 
+    <!-- <message name="OBSTACLE_ESTIMATION" id="31">
+      <field name="obstacle_list" type="struct Obstacles">obstacle info</field>
+    </message> -->
+
   </msg_class>
 
 </protocol>
