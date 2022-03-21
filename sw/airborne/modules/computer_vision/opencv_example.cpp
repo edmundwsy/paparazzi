@@ -26,30 +26,156 @@
 
 #include "opencv_example.h"
 
-
-
+#include <chrono>
+#include <cmath>
 using namespace std;
+#include<opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 using namespace cv;
 #include "opencv_image_functions.h"
-#include <vector>
+using namespace std::chrono;
 
+cv::Mat depth_estimate(char *img, int width, int height)
+{
+  cv::Mat M(height, width, CV_8UC2, img);
+  cv::Mat imgBlur, imgHSV, imgThresh, imgDepth, heatImg;
+
+  // Tranpose the vertical image into horizontal image
+
+  cv::Size dsize = cv::Size(260, 120);
+  // cv::resize(image, image, dsize, 0, 0, CV_INTER_LINEAR);
+  cv::GaussianBlur(M, imgBlur, cv::Size(5, 5), 1);
+
+  // Color Type Transformation
+  cv::cvtColor(imgBlur, imgHSV, CV_YUV2BGR_Y422);
+  cv::cvtColor(imgHSV, imgHSV, CV_BGR2HSV);
+
+  cv::inRange(imgHSV, cv::Scalar(20, 43, 46), cv::Scalar(60, 255, 255), imgHSV);
+
+  cv::distanceTransform(imgHSV, imgDepth, CV_DIST_L2, 3);
+  cv::normalize(imgDepth, imgDepth, 1, 255, cv::NORM_MINMAX);
+  /*
+  cv::convertScaleAbs(imgDepth, imgDepth);
+  cv::normalize(imgDepth, imgDepth, 1, 255, cv::NORM_MINMAX);
+  cv::applyColorMap(imgDepth, heatImg, cv::COLORMAP_JET);
+  */
+  return imgHSV;
+}
 
 int opencv_example(char *img, int width, int height)
 {
-  // Create a new image, using the original bebop image.
-  Mat M(height, width, CV_8UC2, img);
-  Mat image, image_tmp;
 
+  Mat M(height, width, CV_8UC2, img);
+  Mat image, image_tmp, src, image2;
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
   blur(image, image, Size(3, 3));
   bilateralFilter(image, image_tmp, 15, 25, 25);
-  Scalar low = Scalar(0, 80, 50);
-  Scalar high = Scalar(20, 255, 100);
-  inRange(image_tmp, low, high, image);
-  // Convert back to YUV422, and put it in place of the original image
-  grayscale_opencv_to_yuv422(image, img, width, height);
+  Scalar low = Scalar(0, 80, 0);
+  Scalar high = Scalar(255, 255, 255);
+  cv::inRange(image_tmp, low, high, image);
+  Scalar low2 = Scalar(0, 0, 0);
+  Scalar high2 = Scalar(50, 50, 50);
+  cv::inRange(image_tmp, low2, high2, image2);
+  image = 255 - (image2 | image);
+
+  for (int i=0;i<M.rows;i++)        //遍历每一行每一列并设置其像素值
+  {
+    for (int j=0;j<M.cols;j++)
+    {
+      if(j > M.cols/2){
+        image.at<uchar>(i,j)=0;
+      }
+    }
+  }
+
+
+  high_resolution_clock::time_point tic    = high_resolution_clock::now();
+  Mat                               kernel = getStructuringElement(MORPH_RECT, Size(8, 8));
+  morphologyEx(image, src, MORPH_OPEN, kernel);
+
+  // std::cout << src.type() << src.channels() << endl;
+  // connected component labeling
+  RNG rng(42);
+  Mat stats, centroids;
+  Mat labels     = Mat::zeros(src.size(), src.type());
+  int num_labels = connectedComponentsWithStats(src, labels, stats, centroids, 4);
+  cout << "found connected components: " << num_labels << endl;
+
+  // Filtering
+  int *valid_labels = new (int[num_labels]);
+  for (int i = 0; i < num_labels; i++) {
+    int width  = stats.at<int>(i, CC_STAT_WIDTH);
+    int height = stats.at<int>(i, CC_STAT_HEIGHT);
+
+    if (width < 30 || height < 30 || float(width / height) > 5) {
+      valid_labels[i] = 0;
+    } else {
+      valid_labels[i] = i;
+    }
+    std::cout << valid_labels[i] << ' ';
+  }
+  std::cout << std::endl;
+
+  high_resolution_clock::time_point toc       = high_resolution_clock::now();
+  duration<double>                  time_span = duration_cast<duration<double>>(toc - tic);
+  std::cout << "Duration: " << time_span.count() << " seconds" << std::endl;
+
+  vector<Vec3b> colors(num_labels);
+  // generate background color => black
+  colors[0] = Vec3b(0, 0, 0);
+  // generate region color => random
+  for (int i = 1; i < num_labels; i++) {
+    colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+  }
+  // display components, drawing
+  Mat dst1 = Mat::zeros(src.size(), CV_8UC3);
+  int w    = src.cols;
+  int h    = src.rows;
+  std::cout << "width " << w << " height " << h << std::endl;
+  for (int row = 0; row < h; row++) {
+    for (int col = 0; col < w; col++) {
+      int label = labels.at<int>(row, col);
+      if (valid_labels[label] == 0) {
+        continue;
+      }
+      dst1.at<Vec3b>(row, col) = colors[label];
+    }
+  }
+
+  // static and drawing
+  for (int i = 1; i < num_labels; i++) {
+    Vec2d pt     = centroids.at<Vec2d>(i, 0);
+    int   x      = stats.at<int>(i, CC_STAT_LEFT);
+    int   y      = stats.at<int>(i, CC_STAT_TOP);
+    int   width  = stats.at<int>(i, CC_STAT_WIDTH);
+    int   height = stats.at<int>(i, CC_STAT_HEIGHT);
+    int   area   = stats.at<int>(i, CC_STAT_AREA);
+    printf("area : %d, center point(%.2f, %.2f)\n", area, pt[0], pt[1]);       //面积信息
+    if(area > 1000){
+      circle(dst1, Point(pt[0], pt[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
+      rectangle(dst1, Rect(x, y, width, height), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
+    }
+    
+  }
+
+  colorbgr_opencv_to_yuv422(dst1, img, width, height);
+
+
+
+
+  // // Create a new image, using the original bebop image.
+  // Mat M(height, width, CV_8UC2, img);
+  // Mat image, image_tmp;
+
+  // cvtColor(M, image, COLOR_YUV2BGR_Y422);
+  // blur(image, image, Size(3, 3));
+  // bilateralFilter(image, image_tmp, 15, 25, 25);
+  // Scalar low = Scalar(0, 80, 50);
+  // Scalar high = Scalar(20, 255, 100);
+  // inRange(image_tmp, low, high, image);
+  // // Convert back to YUV422, and put it in place of the original image
+  // grayscale_opencv_to_yuv422(image, img, width, height);
   
   return 0;
 }

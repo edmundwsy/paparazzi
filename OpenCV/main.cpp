@@ -71,8 +71,8 @@ void grayscale_opencv_to_yuv422(Mat image, char *img, int width, int height) {
 
 int main() {
   // Mat img_ori = imread("");
-  Mat img_ori = imread("imgs/361876501.jpg");
-  // Mat img_ori = imread("imgs/376609733.jpg");
+  // Mat img_ori = imread("imgs/361876501.jpg");
+  Mat img_ori = imread("imgs/376609733.jpg");
   // Mat img_ori = imread("imgs/368709783.jpg");
   // Mat img_ori = imread("imgs/372043080.jpg");
   // Mat img_ori = imread("imgs/347443312.jpg");
