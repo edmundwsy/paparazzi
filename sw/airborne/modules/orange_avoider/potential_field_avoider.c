@@ -117,7 +117,7 @@ float PF_GOAL_THRES       = 0.2;  // threshold near the goal
 float PF_MAX_ITER         = 10;   // max iteration of potential field iterations
 float PF_STEP_SIZE        = 1.0;  // step size between current states and new goal
 float PF_INFLUENCE_RADIUS = 3.0;  // distance where repulsion can take effect
-float PF_MAX_VELOCITY     = 1.5;  // maximum velocity
+float PF_MAX_VELOCITY     = 1.0;  // maximum velocity
 float PF_FORWARD_WEIGHT   = 1.0;  // weight for moving forward
 
 // define and initialise global variables
@@ -230,7 +230,7 @@ void potential_field_avoider_periodic(void) {
       VERBOSE_PRINT("[STATE] (%.2f, %.2f)\n", state.x, state.y);
 
       // TODO: use bottom camera to detect out of bound
-      if (ABS(state.x) >= 3.0f || ABS(state.y) >= 3.0f) {
+      if (ABS(state.x) >= 2.5f || ABS(state.y) >= 2.5f) {
         navigation_state = OUT_OF_BOUNDS;
       }
 
@@ -311,9 +311,38 @@ void potential_field_avoider_periodic(void) {
       guidance_h_set_guided_body_vel(0, 0);
 
       // start turn back into arena
-      guidance_h_set_guided_heading_rate(avoidance_heading_direction * RadOfDeg(15));
+      // TODO: We use global position in this part
+      float ox      = stateGetPositionNed_f()->x;
+      float oy      = stateGetPositionNed_f()->y;
+      float yaw_rad = stateGetNedToBodyEulers_f()->psi;
+      yaw_rad       = (yaw_rad < M_PI) ? (yaw_rad + 2 * M_PI) : yaw_rad;
+      float oyaw    = DegOfRad(yaw_rad);
+      oyaw          = (oyaw < -180) ? (oyaw + 360) : oyaw;
+      oyaw          = (oyaw > 180) ? (oyaw - 360) : oyaw;
+      VERBOSE_PRINT("[STATE] (%.2f, %.2f, %.2f) ", state.x, state.y, oyaw);
 
-      navigation_state = REENTER_ARENA;
+      if (ox > 2.8f && oyaw < -90) {
+        DEBUG_PRINT("HEADING SOUTH \n");
+        guidance_h_set_guided_body_vel(0.5, 0);
+        navigation_state = SAFE;
+      } else if (ox < -2.8f && oyaw < 90 && oyaw > 0) {
+        DEBUG_PRINT("HEADING NORTH \n");
+        guidance_h_set_guided_body_vel(0.5, 0);
+        navigation_state = SAFE;
+      } else if (oy > 2.8f && oyaw > 90) {
+        DEBUG_PRINT("HEADING EAST \n");
+        guidance_h_set_guided_body_vel(0.5, 0);
+        navigation_state = SAFE;
+      } else if (oy < 2.8f && oyaw < 0 && oyaw > -90) {
+        DEBUG_PRINT("HEADING WEST \n");
+        guidance_h_set_guided_body_vel(0.5, 0);
+        navigation_state = SAFE;
+      } else {
+        DEBUG_PRINT("ROTATING \n");
+        guidance_h_set_guided_body_vel(0, 0);
+        guidance_h_set_guided_heading_rate(RadOfDeg(30));
+        navigation_state = OUT_OF_BOUNDS;
+      }
       break;
 
     case REENTER_ARENA:
@@ -332,6 +361,7 @@ void potential_field_avoider_periodic(void) {
 
         // ensure direction is safe before continuing
         navigation_state = SAFE;
+      } else {
       }
       break;
     default:
