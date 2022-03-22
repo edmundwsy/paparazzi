@@ -20,6 +20,8 @@ extern float PF_GOAL_THRES;        // threshold near the goal
 extern float PF_MAX_ITER;          // max iteration of potential field iterations
 extern float PF_STEP_SIZE;         // step size between current states and new goal
 extern float PF_INFLUENCE_RADIUS;  // distance where repulsion can take effect
+extern float PF_MAX_VELOCITY;      // maximum velocity
+extern float PF_FORWARD_WEIGHT;    // weight for moving forward
 
 // functions
 extern void potential_field_avoider_init(void);
@@ -29,32 +31,37 @@ extern void potential_field_avoider_periodic(void);
  * @param x North position (local NED frame) in meters.
  * @param y East position (local NED frame) in meters.
  * @param heading Setpoint in radians.
- * @return TRUE if setpoint was set (currently in AP_MODE_GUIDED)
  */
-extern void guided_goto_ned(float x, float y, float heading);
+extern void guided_pos_ned(float x, float y, float heading);
 
 /** Set position and heading setpoints wrt. current position in GUIDED mode.
  * @param dx Offset relative to current north position (local NED frame) in meters.
  * @param dy Offset relative to current east position (local NED frame) in meters.
  * @param dyaw Offset relative to current heading setpoint in radians.
- * @return TRUE if setpoint was set (currently in AP_MODE_GUIDED)
  */
-extern void guided_goto_ned_relative(float dx, float dy, float dyaw);
+extern void guided_pos_ned_relative(float dx, float dy, float dyaw);
 
 /** Set position and heading setpoints wrt. current position AND heading in GUIDED mode.
  * @param dx relative position (body frame, forward) in meters.
  * @param dy relative position (body frame, right) in meters.
  * @param dyaw Offset relative to current heading setpoint in radians.
- * @return TRUE if setpoint was set (currently in AP_MODE_GUIDED)
  */
-extern void guided_goto_body_relative(float dx, float dy, float dyaw);
+extern void guided_pos_body_relative(float dx, float dy, float dyaw);
 
 /** Set velocity and heading setpoints in GUIDED mode.
  * @param vx North velocity (local NED frame) in meters/sec.
  * @param vy East velocity (local NED frame) in meters/sec.
  * @param heading Setpoint in radians.
- * @return TRUE if setpoint was set (currently in AP_MODE_GUIDED)
  */
 extern void guided_move_ned(float vx, float vy, float heading);
+
+/**
+ * @brief Set velocity and heading setpoints wrt. current position AND heading in GUIDED mode.
+ * 
+ * @param vx forward velocity  (body frame)
+ * @param vy move right velocity (body frame)
+ * @param dyaw Offset relative to current heading setpoint in radians.
+ */
+extern void guided_vel_body_relative(float vx, float vy, float dyaw);
 
 #endif
