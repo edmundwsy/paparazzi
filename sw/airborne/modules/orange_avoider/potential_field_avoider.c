@@ -32,7 +32,7 @@
 
 #include <stdio.h>
 #include <time.h>
-
+#include "modules/core/abi.h"
 #include "firmwares/rotorcraft/autopilot_guided.h"
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "firmwares/rotorcraft/navigation.h"
@@ -42,7 +42,6 @@
 #include "math/pprz_algebra_float.h"
 #include "modules/core/abi.h"
 #include "state.h"
-
 #define POTENTIAL_FIELD_AVOIDER_VERBOSE TRUE
 
 #define PRINT(string, ...) \
@@ -188,6 +187,24 @@ static void      floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   floor_centroid = pixel_y;
 }
 
+// needed to receive output from a separate module running on a parallel process
+int32_t x_flow=-1, y_flow=-1;
+#ifndef FLOW_OPTICFLOW_CAM1_ID
+#define FLOW_OPTICFLOW_CAM1_ID ABI_BROADCAST
+#endif
+static abi_event opticflow_ev;
+static void opticflow_cb(uint8_t __attribute__((unused)) sender_id,
+                         uint32_t __attribute__((unused)) stamp, 
+                         int32_t flow_x, 
+                         int32_t flow_y,
+                         int32_t flow_der_x, 
+                         int32_t flow_der_y,
+                         float __attribute__((unused)) quality, 
+                         float size_divergence) {
+  x_flow = flow_x;
+  y_flow = flow_y;
+}
+
 /*
  * Initialisation function
  */
@@ -202,6 +219,8 @@ void potential_field_avoider_init(void) {
   // AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
   //                            color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  // AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  // AbiBindMsgOPTICAL_FLOW(FLOW_OPTICFLOW_ID, &opticflow_ev, opticflow_cb);
 }
 
 void potential_field_avoider_periodic(void) {

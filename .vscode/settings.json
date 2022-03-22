@@ -1,0 +1,29 @@
+{
+    "[c]": {
+        "editor.tabSize": 2,
+    },
+    "[cpp]": {
+        "editor.tabSize": 2,
+    },
+    "[python]": {
+        "editor.tabSize": 4,
+    },
+    "files.associations": {
+        "mateksys_3901_l0x.h": "c",
+        "stdlib.h": "c",
+        "iterator": "cpp",
+        "tensor": "cpp",
+        "orange_avoider.h": "c",
+        "image.h": "c",
+        "colorfilter.h": "c",
+        "flight_plan.h": "c",
+        "state.h": "c",
+        "potential_field_avoider.h": "c",
+        "pprz_algebra_float.h": "c",
+        "math.h": "c",
+        "cv.h": "c",
+        "std.h": "c",
+        "cv_detect_color_object.h": "c",
+        "chrono": "cpp"
+    },
+}
