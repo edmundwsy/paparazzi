@@ -167,7 +167,7 @@ void orange_avoider_guided_periodic(void)
   } else {
     obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
   }
-  VERBOSE_PRINT("obstacle number: %i\n", obs_num);
+  // VERBOSE_PRINT("obstacle number: %i\n", obs_num);
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 

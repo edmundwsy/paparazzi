@@ -33,6 +33,7 @@ using namespace std;
 using namespace cv;
 #include "opencv_image_functions.h"
 using namespace std::chrono;
+#include "state.h"
 Mat image, image_tmp, src, image2, image1, image3;
 Scalar low = Scalar(30, 80, 120);
 Scalar high = Scalar(110, 255, 180);
@@ -52,8 +53,9 @@ Mat camera_matrix_ = (cv::Mat_<float>(3,3)<<282.9480391701469, -0.52707135483413
                                             0,                 282.665185424907,   275.109826551610, 
                                             0,                 0,                  1);
 Mat distor_coeffs = (cv::Mat_<float>(1,5) << -0.3122,  0.0860, -0.0004594689988183520, -0.0020, 0);
-
-
+float depth_array[5] = {0};
+float f_y = camera_matrix_.at<float>(1,1); // intrinsic y aperature with image in original vertical orientation, which means it is equal to the width 
+float y_0 = 330; // 330 mm width of the pole in real life in original vertical orientation
 int opencv_example(char *img, int width, int height){
   obs_num_detected = 0;
   Mat M(height, width, CV_8UC2, img);
@@ -108,25 +110,27 @@ int opencv_example(char *img, int width, int height){
 
   // static and drawing
   for (int i = 1; i < num_labels; i++) {
-    if(stats.at<int>(i, CC_STAT_AREA) > 1000){
+    if(valid_labels[i] == i){
       circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
       rectangle(dst1, Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP), stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
-      printf("obstacle pos: %f   %f\n", centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]);
     }
     
   }
-
+  printf("obstacle NUMBER: %i\n", obs_num_detected);  
   // Calculate the depth (Koen Method)
   // assumptions:
-  float f_y = camera_matrix_.at<float>(1,1); // intrinsic y aperature with image in original vertical orientation, which means it is equal to the width 
-  float y_0 = 330; // 330 mm width of the pole in real life in original vertical orientation
-  float depth_array[num_labels] = {};
-
+  int j=0;
   for (int i = 1; i < num_labels; i++) {
-    depth_array[i] = ((f_y * y_0)/stats.at<int>(i, CC_STAT_HEIGHT))/1000;
-    
-    printf("obstacle depth (meters): %f\n", depth_array[i]);  
+    if(valid_labels[i] == i){
+      depth_array[j] = ((f_y * y_0)/stats.at<int>(i, CC_STAT_HEIGHT))/1000;
+      // depth_array1[j] = (camera_matrix_.at<float>(0,0) * -1200)/(stats.at<int>(i, CC_STAT_LEFT) - camera_matrix_.at<float>(0,2) - camera_matrix_.at<float>(0,1) * (stats.at<int>(i, CC_STAT_TOP)+stats.at<int>(i, CC_STAT_HEIGHT)/2-camera_matrix_.at<float>(1,2))/camera_matrix_.at<float>(1,1))/1000;
+      printf("obstacle depth (meters): %f\n", depth_array[j]);  
+      j++;
+    }
+    // printf("obstacle depth (meters): %f\n", depth_array[i]);  
   }
+
+
   
   colorbgr_opencv_to_yuv422(dst1, img, width, height);
 
