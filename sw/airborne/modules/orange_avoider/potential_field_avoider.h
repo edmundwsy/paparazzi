@@ -22,6 +22,7 @@ extern float PF_STEP_SIZE;         // step size between current states and new g
 extern float PF_INFLUENCE_RADIUS;  // distance where repulsion can take effect
 extern float PF_MAX_VELOCITY;      // maximum velocity
 extern float PF_FORWARD_WEIGHT;    // weight for moving forward
+extern float PF_BOUND;             // boundary of the arena
 
 // functions
 extern void potential_field_avoider_init(void);
@@ -57,7 +58,7 @@ extern void guided_move_ned(float vx, float vy, float heading);
 
 /**
  * @brief Set velocity and heading setpoints wrt. current position AND heading in GUIDED mode.
- * 
+ *
  * @param vx forward velocity  (body frame)
  * @param vy move right velocity (body frame)
  * @param dyaw Offset relative to current heading setpoint in radians.
