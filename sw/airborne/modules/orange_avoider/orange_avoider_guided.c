@@ -163,10 +163,10 @@ void orange_avoider_guided_periodic(void)
 
   // update our safe confidence using color threshold
   printf("Pixel Percent: %f + %d",obs_list[0][0], color_count_threshold);
-  if(obs_list[0][0] < color_count_threshold){
+  if(obs_list[0][0] < 0.4){
     obstacle_free_confidence++;
   } else {
-    obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
+    obstacle_free_confidence -= 0;  // be more cautious with positive obstacle detections
   }
   VERBOSE_PRINT("obstacle number: %i\n", obs_num);
   // bound obstacle_free_confidence

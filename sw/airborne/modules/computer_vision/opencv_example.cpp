@@ -83,43 +83,42 @@ int opencv_example(char *img, int width, int height){
   int num_labels = min(connectedComponentsWithStats(src, labels, stats, centroids, 4),20);
   float percent_obstacles = 0.0;
   // Filtering small obstacles
-  for (int i = 0; i < num_labels; i++) {
-    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
+  for (int i = 1; i < num_labels; i++) {
+    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(stats.at<int>(i, CC_STAT_WIDTH) / stats.at<int>(i, CC_STAT_HEIGHT)) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
       obs_num_detected++;
       percent_obstacles += stats.at<int>(i, CC_STAT_AREA);
     }
   }
-
   percent_obstacles = percent_obstacles / (width*height);
-//  // generate background color => black
-//  colors[0] = Vec3b(0, 0, 0);
-//  // generate region color => random
-//  for (int i = 1; i < num_labels; i++) {
-//    colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-//  }
-//  // display components, drawing
-//  dst1 = Mat::zeros(src.size(), CV_8UC3);
-//  for (int row = 0; row < src.rows; row++) {
-//    for (int col = 0; col < src.cols; col++) {
-//      if (valid_labels[labels.at<int>(row, col)] == -1) {
-//        continue;
-//      }
-//      dst1.at<Vec3b>(row, col) = colors[labels.at<int>(row, col)];
-//    }
-//  }
-//
-//  // static and drawing
-//  for (int i = 1; i < num_labels; i++) {
-//    if(stats.at<int>(i, CC_STAT_AREA) > 1000){
-//      circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
-//      rectangle(dst1, Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP), stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
-//      printf("obstacle pos: %f   %f\n", centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]);
-//    }
+ // generate background color => black
+ colors[0] = Vec3b(0, 0, 0);
+ // generate region color => random
+ for (int i = 1; i < num_labels; i++) {
+   colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+ }
+ // display components, drawing
+ dst1 = Mat::zeros(src.size(), CV_8UC3);
+ for (int row = 0; row < src.rows; row++) {
+   for (int col = 0; col < src.cols; col++) {
+     if (valid_labels[labels.at<int>(row, col)] == -1) {
+       continue;
+     }
+     dst1.at<Vec3b>(row, col) = colors[labels.at<int>(row, col)];
+   }
+ }
+
+ // static and drawing
+ for (int i = 1; i < num_labels; i++) {
+   if(stats.at<int>(i, CC_STAT_AREA) > 1000){
+     circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2, Scalar(0, 0, 255), -1, 8, 0);         //中心点坐标
+     rectangle(dst1, Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP), stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)), Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
+    //  printf("obstacle pos: %f   %f\n", centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]);
+   }
     
-//  }
+ }
   
-  colorbgr_opencv_to_yuv422(M1, img, width, height);
+  colorbgr_opencv_to_yuv422(dst1, img, width, height);
 
 //  AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,0,0,0,0,0,0,0,0,0,0);
   AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,percent_obstacles,0,0,0,0,0,0,0,0,0);
