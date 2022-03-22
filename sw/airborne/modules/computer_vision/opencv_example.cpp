@@ -54,7 +54,12 @@ Mat camera_matrix_ = (cv::Mat_<float>(3,3)<<282.9480391701469, -0.52707135483413
                                             0,                 0,                  1);
 Mat distor_coeffs = (cv::Mat_<float>(1,5) << -0.3122,  0.0860, -0.0004594689988183520, -0.0020, 0);
 float depth_array[5] = {0};
+float x_position_array[5] = {0};
+float y_position_array[5] = {0};
 float f_y = camera_matrix_.at<float>(1,1); // intrinsic y aperature with image in original vertical orientation, which means it is equal to the width 
+float f_x = camera_matrix_.at<float>(0,0);
+float c_y = camera_matrix_.at<float>(1,2);
+float c_x = camera_matrix_.at<float>(0,2);
 float y_0 = 330; // 330 mm width of the pole in real life in original vertical orientation
 int opencv_example(char *img, int width, int height){
   obs_num_detected = 0;
@@ -117,14 +122,26 @@ int opencv_example(char *img, int width, int height){
     
   }
   printf("obstacle NUMBER: %i\n", obs_num_detected);  
-  // Calculate the depth (Koen Method)
+  // Calculate the depth (Koen Method) https://mayavan95.medium.com/3d-position-estimation-of-a-known-object-using-a-single-camera-7a82b37b326b
   // assumptions:
   int j=0;
   for (int i = 1; i < num_labels; i++) {
     if(valid_labels[i] == i){
-      depth_array[j] = ((f_y * y_0)/stats.at<int>(i, CC_STAT_HEIGHT))/1000;
+      printf("obstacle height (pixels): %f\n", stats.at<int>(i, CC_STAT_HEIGHT)); // should be width when frame is rotated
+      printf("obstacle width (pixels): %f\n", stats.at<int>(i, CC_STAT_WIDTH)); // should be height when frame is rotated
+      // printf("obstacle center x (pixels): %f\n", centroids.at<Vec2d>(i, 0)[0]); 
+      // printf("obstacle center y (pixels): %f\n", centroids.at<Vec2d>(i, 0)[1]); 
+
+      depth_array[j] = ((f_y * y_0)/stats.at<int>(i, CC_STAT_HEIGHT));
+      y_position_array[j] = ((centroids.at<Vec2d>(i, 0)[0] - c_x)*depth_array[j])/f_x; // y_position_array gives the y position of the obstacle with a flipped frame, in original orientation this is the x axis
+      x_position_array[j] = ((centroids.at<Vec2d>(i, 0)[1] - c_y)*depth_array[j])/f_y; // x_position_array gives the x position of the obstacle with a flipped frame, in original orientation this is the y axis
+
+      depth_array[j] = depth_array[j]/1000;
+      y_position_array[j] = x_position_array[j]/1000;
+      x_position_array[j] = y_position_array[j]/1000;
       // depth_array1[j] = (camera_matrix_.at<float>(0,0) * -1200)/(stats.at<int>(i, CC_STAT_LEFT) - camera_matrix_.at<float>(0,2) - camera_matrix_.at<float>(0,1) * (stats.at<int>(i, CC_STAT_TOP)+stats.at<int>(i, CC_STAT_HEIGHT)/2-camera_matrix_.at<float>(1,2))/camera_matrix_.at<float>(1,1))/1000;
-      printf("obstacle depth (meters): %f\n", depth_array[j]);  
+      printf("obstacle depth (meters): %f\n", depth_array[j]);
+      printf("position obstacle x: %f   y: %f\n", x_position_array[j], y_position_array[j]);   
       j++;
     }
     // printf("obstacle depth (meters): %f\n", depth_array[i]);  
