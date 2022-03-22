@@ -48,7 +48,9 @@ Mat dst1;
 int valid_labels[20] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 Vec3b colors[20];
 int obs_num_detected = 0;
-Mat camera_matrix_ = (cv::Mat_<float>(3,3)<<282.9480391701469, -0.527071354834133, 28.9068266678759, 0, 282.665185424907, 275.109826551610, 0, 0, 1);
+Mat camera_matrix_ = (cv::Mat_<float>(3,3)<<282.9480391701469, -0.527071354834133, 28.9068266678759, 
+                                            0,                 282.665185424907,   275.109826551610, 
+                                            0,                 0,                  1);
 Mat distor_coeffs = (cv::Mat_<float>(1,5) << -0.3122,  0.0860, -0.0004594689988183520, -0.0020, 0);
 
 
@@ -81,8 +83,8 @@ int opencv_example(char *img, int width, int height){
   int num_labels = min(connectedComponentsWithStats(src, labels, stats, centroids, 4),20);
 
   // Filtering
-  for (int i = 0; i < num_labels; i++) {
-    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
+  for (int i = 1; i < num_labels; i++) {
+    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(stats.at<int>(i, CC_STAT_WIDTH) / stats.at<int>(i, CC_STAT_HEIGHT)) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
       obs_num_detected++;
     }
