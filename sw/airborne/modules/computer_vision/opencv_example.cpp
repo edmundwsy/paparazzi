@@ -59,7 +59,6 @@ int opencv_example(char *img, int width, int height){
   
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
 
-// TODO: undistor
   undistort(image, M1, camera_matrix_, distor_coeffs);
 
   blur(M1, image, Size(5, 5));
