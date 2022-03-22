@@ -90,7 +90,7 @@ int32_t floor_centroid     = 0;  // floor detector centroid in y direction (alon
 // array of obstacles
 struct FloatVect2 _obs[NUM_OBS] = {
     {0.6f, 0.7f}, {2.5f, 2.8f}, {-2.5f, 1.5f}, {-1.8f, -3.4f}, {0.5f, -1.8f}};
-
+uint8_t num_valid_obs = 0;
 uint8_t _goal_flag = 0;
 // array of all goals
 struct FloatVect2 _goals[4] = {{2.0f, 2.0f}, {-2.0f, 2.0f}, {-2.0f, -2.0f}, {2.0f, -2.0f}};
@@ -187,23 +187,52 @@ static void      floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   floor_centroid = pixel_y;
 }
 
-// needed to receive output from a separate module running on a parallel process
-int32_t x_flow=-1, y_flow=-1;
-#ifndef FLOW_OPTICFLOW_CAM1_ID
-#define FLOW_OPTICFLOW_CAM1_ID ABI_BROADCAST
-#endif
-static abi_event opticflow_ev;
-static void opticflow_cb(uint8_t __attribute__((unused)) sender_id,
-                         uint32_t __attribute__((unused)) stamp, 
-                         int32_t flow_x, 
-                         int32_t flow_y,
-                         int32_t flow_der_x, 
-                         int32_t flow_der_y,
-                         float __attribute__((unused)) quality, 
-                         float size_divergence) {
-  x_flow = flow_x;
-  y_flow = flow_y;
+static abi_event obstacle_estimation_ev;
+static void obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id,
+                                   int n,
+                                   float x1,
+                                   float y1,
+                                   float x2,
+                                   float y2,
+                                   float x3,
+                                   float y3,
+                                   float x4,
+                                   float y4,
+                                   float x5,
+                                   float y5)
+{
+  _obs[0].x = x1;
+  _obs[0].y = y1;
+  _obs[1].x = x2;
+  _obs[1].y = y2;
+  _obs[2].x = x3;
+  _obs[2].y = y3;
+  _obs[3].x = x4;
+  _obs[3].y = y4;
+  _obs[4].x = x5;
+  _obs[4].y = y5;
+  num_valid_obs = n;
 }
+
+
+
+// needed to receive output from a separate module running on a parallel process
+// int32_t x_flow=-1, y_flow=-1;
+// #ifndef FLOW_OPTICFLOW_CAM1_ID
+// #define FLOW_OPTICFLOW_CAM1_ID ABI_BROADCAST
+// #endif
+// static abi_event opticflow_ev;
+// static void opticflow_cb(uint8_t __attribute__((unused)) sender_id,
+//                          uint32_t __attribute__((unused)) stamp, 
+//                          int32_t flow_x, 
+//                          int32_t flow_y,
+//                          int32_t flow_der_x, 
+//                          int32_t flow_der_y,
+//                          float __attribute__((unused)) quality, 
+//                          float size_divergence) {
+//   x_flow = flow_x;
+//   y_flow = flow_y;
+// }
 
 /*
  * Initialisation function
@@ -219,6 +248,7 @@ void potential_field_avoider_init(void) {
   // AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
   //                            color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  AbiBindMsgOBSTACLE_ESTIMATION(OBSTACLE_SENSOR_ID, &obstacle_estimation_ev, obstacle_estimation_cb);
   // AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
   // AbiBindMsgOPTICAL_FLOW(FLOW_OPTICFLOW_ID, &opticflow_ev, opticflow_cb);
 }
@@ -260,12 +290,12 @@ void potential_field_avoider_periodic(void) {
       }
 
       struct FloatVect2 zero = {0.0f, 0.0f};
-      struct FloatVect2 obs_local[NUM_OBS];
+      // struct FloatVect2 obs_local[NUM_OBS];
 
       for (uint8_t idx = 0; idx < NUM_OBS; idx++) {
-        obs_local[idx] = globalToBodyPosition(&_obs[idx]);
-        // DEBUG_PRINT("[OBS] ");
-        // DEBUG_PRINT(" Global: %i (%.2f, %.2f) ", idx, _obs[idx].x, _obs[idx].y);
+      //   obs_local[idx] = globalToBodyPosition(&_obs[idx]);
+        DEBUG_PRINT("[OBS] ");
+        DEBUG_PRINT(" Global: %i (%.2f, %.2f) \n", idx, _obs[idx].x, _obs[idx].y);
         // DEBUG_PRINT("\tLocal: [%.2f, %.2f] \n", obs_local[idx].x, obs_local[idx].y);
       }
       // DEBUG_PRINT("\n");
@@ -282,7 +312,8 @@ void potential_field_avoider_periodic(void) {
       VERBOSE_PRINT("[GOAL] (%.2f, %.2f)\n", goal_local.x, goal_local.y);
 
       /* Update velocity by potential field planning */
-      struct FloatVect2 wpt = potentialFieldVelUpdate(&obs_local, goal_local, zero);
+      // struct FloatVect2 wpt = potentialFieldVelUpdate(&obs_local, goal_local, zero);
+      struct FloatVect2 wpt = potentialFieldVelUpdate(&_obs, goal_local, zero);
 
       /* distance to the goal */
       struct FloatVect2 diff, cur;
@@ -431,14 +462,14 @@ struct FloatVect2 attractive(struct FloatVect2 goal, struct FloatVect2 current) 
 struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
   struct FloatVect2 rep, tmp, dir;
   VECT2_ASSIGN(rep, 0.0f, 0.0f);
-  for (int i = 0; i < NUM_OBS; i++) {
+  for (int i = 0; i < num_valid_obs; i++) {
     /* debug */
     // DEBUG_PRINT("[REP] obs %i (%.2f, %.2f), ", i, obs[i].x, obs[i].y);
 
-    if (obs[i].x < 0) {
+    // if (obs[i].x < 0) {
       // DEBUG_PRINT("[REP] obstacle invisible \n");
-      continue;
-    } else {
+      // continue;
+    // } else {
       VECT2_DIFF(tmp, current, obs[i]);
       float distance = VECT2_NORM2(tmp);
 
@@ -453,7 +484,7 @@ struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
         VECT2_SMUL(dir, dir, u);
         VECT2_ADD(rep, dir);
       }
-    }
+    // }
   }
   DEBUG_PRINT("[REP] computed repulsion direction is (%.2f, %.2f)\n", rep.x, rep.y);
   return rep;
