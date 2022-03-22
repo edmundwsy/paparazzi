@@ -113,6 +113,18 @@ int opencv_example(char *img, int width, int height){
     }
     
   }
+
+  // Calculate the depth (Koen Method)
+  // assumptions:
+  float f_y = camera_matrix_.at<float>(1,1); // intrinsic y aperature with image in original vertical orientation, which means it is equal to the width 
+  float y_0 = 330; // 330 mm width of the pole in real life in original vertical orientation
+  float depth_array[num_labels] = {};
+
+  for (int i = 1; i < num_labels; i++) {
+    depth_array[i] = ((f_y * y_0)/stats.at<int>(i, CC_STAT_HEIGHT))/1000;
+    
+    printf("obstacle depth (meters): %f\n", depth_array[i]);  
+  }
   
   colorbgr_opencv_to_yuv422(dst1, img, width, height);
 
