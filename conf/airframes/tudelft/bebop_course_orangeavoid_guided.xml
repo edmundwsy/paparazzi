@@ -66,7 +66,12 @@
     <module name="logger_file"/>
 
     <!-- Video/Camera modules -->
-    <module name="bebop_cam"/>
+    <module name="bebop_cam">
+      <configure name="MT9V117_TARGET_FPS" value="1"/> <!-- bottom cam-->
+      <define name="MT9F002_TARGET_FPS" value="10"/> <!-- front cam -->
+      <define name="MT9F002_OUTPUT_WIDTH" value="120"/>
+      <define name="MT9F002_OUTPUT_HEIGHT" value="260"/>
+    </module>
     <!--module name="bebop_ae_awb">
       <define name="CV_AE_AWB_VERBOSE" value="0" />
     </module-->
@@ -87,12 +92,12 @@
       <define name="ORANGE_AVOIDER_VISUAL_DETECTION_ID" value="COLOR_OBJECT_DETECTION1_ID"/>
       <define name="FLOOR_VISUAL_DETECTION_ID" value="COLOR_OBJECT_DETECTION2_ID"/>
     </module>
-    <module name="video_rtp_stream">
-      <define name="VIEWVIDEO_CAMERA" value="front_camera"/>
-      <define name="VIEWVIDEO_CAMERA2" value="bottom_camera"/>
-      <define name="VIEWVIDEO_DOWNSIZE_FACTOR" value="1"/>
-      <define name="VIEWVIDEO_QUALITY_FACTOR" value="40"/>
-    </module>
+<!--    <module name="video_rtp_stream">-->
+<!--      <define name="VIEWVIDEO_CAMERA" value="front_camera"/>-->
+<!--      <define name="VIEWVIDEO_CAMERA2" value="bottom_camera"/>-->
+<!--      <define name="VIEWVIDEO_DOWNSIZE_FACTOR" value="1"/>-->
+<!--      <define name="VIEWVIDEO_QUALITY_FACTOR" value="40"/>-->
+<!--    </module>-->
 
     <module name="cv_opencvdemo">
       <define name="OPENCVDEMO_CAMERA" value="front_camera"/>
@@ -131,8 +136,8 @@
   </command_laws>
   
   <section name="BEBOP_FRONT_CAMERA" prefix="MT9F002_">
-    <define name="OUTPUT_HEIGHT" value="260" />
-    <define name="OUTPUT_WIDTH" value="120" />
+<!--    <define name="OUTPUT_HEIGHT" value="260" />-->
+<!--    <define name="OUTPUT_WIDTH" value="120" />-->
     <define name="OFFSET_X" value="0.09" />
     <define name="ZOOM" value="1.25"/>
     <define name="GAIN_GREEN1" value="10.0"/>
