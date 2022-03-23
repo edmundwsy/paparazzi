@@ -308,8 +308,8 @@ void potential_field_avoider_periodic(void) {
 
       /* Using local goals which will never reach */
       float             random_goal_y = 2 * random_position_y() - 1;
-      struct FloatVect2 goal_local    = {2.0f, random_goal_y};
-      VERBOSE_PRINT("[GOAL] (%.2f, %.2f)\n", goal_local.x, goal_local.y);
+      struct FloatVect2 goal_local    = {1.0f, random_goal_y};
+      DEBUG_PRINT("[GOAL] (%.2f, %.2f)\n", goal_local.x, goal_local.y);
 
       /* Update velocity by potential field planning */
       // struct FloatVect2 wpt = potentialFieldVelUpdate(&obs_local, goal_local, zero);
