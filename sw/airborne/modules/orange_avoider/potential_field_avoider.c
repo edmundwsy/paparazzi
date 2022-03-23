@@ -364,20 +364,20 @@ void potential_field_avoider_periodic(void) {
       oyaw       = (oyaw > 180) ? (oyaw - 360) : oyaw;
       VERBOSE_PRINT("[STATE] (%.2f, %.2f, %.2f) \n", ox, oy, oyaw);
 
-      if (ox > PF_OUTER_BOUND && ox > oy && (oyaw < -90 || oyaw > 90)) {
-        DEBUG_PRINT("[RE-ENTER] NORTH BORDER, HEADING SOUTH\n");
+      if ((ox > PF_OUTER_BOUND || oy > PF_OUTER_BOUND) && ox > 0 && oy > 0 && oyaw < -90) {
+        DEBUG_PRINT("[RE-ENTER] NORTH-EAST BORDER, HEADING SOUTH-WEST\n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
-      } else if (ox < -PF_OUTER_BOUND && ox < oy && oyaw < 90 && oyaw > -90) {
-        DEBUG_PRINT("[RE-ENTER] SOUTH BORDER, HEADING NORTH\n");
+      } else if ((ox < -PF_OUTER_BOUND || oy > PF_OUTER_BOUND) && ox < 0 && oy > 0 && oyaw < 0 && oyaw > -90) {
+        DEBUG_PRINT("[RE-ENTER] SOUTH-EAST BORDER, HEADING NORTH-WEST\n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
-      } else if (oy > PF_OUTER_BOUND && oy > ox && oyaw < 0) {
-        DEBUG_PRINT("[RE-ENTER] EAST BORDER, HEADING WEST \n");
+      } else if ((ox > PF_OUTER_BOUND || oy < -PF_OUTER_BOUND) && ox > 0 && oy < 0 && oyaw > 90) {
+        DEBUG_PRINT("[RE-ENTER] NORTH-WEST BORDER, HEADING SOUTH-EAST \n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
-      } else if (oy < -PF_OUTER_BOUND && oy < ox && oyaw > 0) {
-        DEBUG_PRINT("[RE-ENTER] WEST BORDER, HEADING EAST \n");
+      } else if ((ox < -PF_OUTER_BOUND || oy < -PF_OUTER_BOUND) && ox < 0 && oy < 0 && oyaw > 0 && oyaw < 90) {
+        DEBUG_PRINT("[RE-ENTER] SOUTH-WEST BORDER, HEADING NORTH-EAST \n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
       } else if (ox < PF_OUTER_BOUND && ox > -PF_OUTER_BOUND && oy < PF_OUTER_BOUND &&
