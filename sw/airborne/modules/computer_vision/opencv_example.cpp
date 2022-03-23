@@ -120,34 +120,37 @@ int opencv_example(char *img, int width, int height) {
       j++;
     }
   }
+
+  /* VISUALIZATION */
   // generate background color => black
-  colors[0] = Vec3b(0, 0, 0);
+  // colors[0] = Vec3b(0, 0, 0);
   // generate region color => random
-  for (int i = 1; i < num_labels; i++) {
-    colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
-  }
+  // for (int i = 1; i < num_labels; i++) {
+  //   colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
+  // }
   // display components, drawing
-  dst1 = Mat::zeros(src.size(), CV_8UC3);
-  for (int row = 0; row < src.rows; row++) {
-    for (int col = 0; col < src.cols; col++) {
-      if (valid_labels[labels.at<int>(row, col)] == -1) {
-        continue;
-      }
-      dst1.at<Vec3b>(row, col) = colors[labels.at<int>(row, col)];
-    }
-  }
+  // dst1 = Mat::zeros(src.size(), CV_8UC3);
+  // for (int row = 0; row < src.rows; row++) {
+  //   for (int col = 0; col < src.cols; col++) {
+  //     if (valid_labels[labels.at<int>(row, col)] == -1) {
+  //       continue;
+  //     }
+  //     dst1.at<Vec3b>(row, col) = colors[labels.at<int>(row, col)];
+  //   }
+  // }
 
   // static and drawing
-  for (int i = 1; i < num_labels; i++) {
-    if (valid_labels[i] == i) {
-      circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2,
-             Scalar(0, 0, 255), -1, 8, 0);  //中心点坐标
-      rectangle(dst1,
-                Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP),
-                     stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)),
-                Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
-    }
-  }
+  // for (int i = 1; i < num_labels; i++) {
+  //   if (valid_labels[i] == i) {
+  //     circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2,
+  //            Scalar(0, 0, 255), -1, 8, 0);  //中心点坐标
+  //     rectangle(dst1,
+  //               Rect(stats.at<int>(i, CC_STAT_LEFT), stats.at<int>(i, CC_STAT_TOP),
+  //                    stats.at<int>(i, CC_STAT_WIDTH), stats.at<int>(i, CC_STAT_HEIGHT)),
+  //               Scalar(255, 0, 255), 1, 8, 0);  //外接矩形
+  //   }
+  // }
+
   printf("obstacle NUMBER: %i\n", obs_num_detected);
   // Calculate the depth (Koen Method)
   // https://mayavan95.medium.com/3d-position-estimation-of-a-known-object-using-a-single-camera-7a82b37b326b

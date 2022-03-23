@@ -22,7 +22,7 @@ extern float PF_STEP_SIZE;         // step size between current states and new g
 extern float PF_INFLUENCE_RADIUS;  // distance where repulsion can take effect
 extern float PF_MAX_VELOCITY;      // maximum velocity
 extern float PF_FORWARD_WEIGHT;    // weight for moving forward
-extern float PF_BOUND;             // boundary of the arena
+extern float PF_INNER_BOUND;             // boundary of the arena
 
 // functions
 extern void potential_field_avoider_init(void);
