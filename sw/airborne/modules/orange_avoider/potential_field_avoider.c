@@ -37,6 +37,7 @@
 #include "firmwares/rotorcraft/guidance/guidance_h.h"
 #include "firmwares/rotorcraft/navigation.h"
 #include "generated/airframe.h"
+#include "generated/flight_plan.h"
 // #include "math/pprz_random.h"
 // #include "math/pprz_algebra.h"
 #include "math/pprz_algebra_float.h"
@@ -65,9 +66,9 @@ float PF_GOAL_THRES       = 0.2;  // threshold near the goal
 float PF_MAX_ITER         = 10;   // max iteration of potential field iterations
 float PF_STEP_SIZE        = 1.0;  // step size between current states and new goal
 float PF_INFLUENCE_RADIUS = 3.0;  // distance where repulsion can take effect
-float PF_MAX_VELOCITY     = 1.2;  // maximum velocity
+float PF_MAX_VELOCITY     = 0.8;  // maximum velocity
 float PF_FORWARD_WEIGHT   = 1.0;  // weight for moving forward
-float PF_BOUND            = 2.7f;
+float PF_BOUND            = 2.8f;
 
 // define and initialise global variables
 enum navigation_state_t navigation_state = SAFE;  // current state in state machine
@@ -247,7 +248,7 @@ void potential_field_avoider_init(void) {
   // bind our colorfilter callbacks to receive the color filter outputs
   // AbiBindMsgVISUAL_DETECTION(POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev,
   //                            color_detection_cb);
-  AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  // AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
   AbiBindMsgOBSTACLE_ESTIMATION(OBSTACLE_SENSOR_ID, &obstacle_estimation_ev, obstacle_estimation_cb);
   // AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
   // AbiBindMsgOPTICAL_FLOW(FLOW_OPTICFLOW_ID, &opticflow_ev, opticflow_cb);
@@ -261,17 +262,17 @@ void potential_field_avoider_periodic(void) {
   }
 
   // compute current color thresholds
-  int32_t floor_count_threshold =
-      oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
-  float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
+  // int32_t floor_count_threshold =
+  //     oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  // float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
 
   // VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold,
   //               navigation_state);
-  VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-  VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
+  // VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
+  // VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
 
   // bound obstacle_free_confidence
-  Bound(obstacle_free_confidence, 0, 5);
+  // Bound(obstacle_free_confidence, 0, 5);
 
   switch (navigation_state) {
     case SAFE:
@@ -281,13 +282,14 @@ void potential_field_avoider_periodic(void) {
 
       // TODO: use bottom camera to detect out of bound
       // if (ABS(state.x) >= PF_BOUND || ABS(state.y) >= PF_BOUND) {
-      //   navigation_state = OUT_OF_BOUNDS;
-      //   break;
-      // }
-      if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12) {
+      if (!InsideObstacleZone(state.x, state.y)) {
         navigation_state = OUT_OF_BOUNDS;
         break;
       }
+      // if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12) {
+      //   navigation_state = OUT_OF_BOUNDS;
+      //   break;
+      // }
 
       struct FloatVect2 zero = {0.0f, 0.0f};
       // struct FloatVect2 obs_local[NUM_OBS];
@@ -358,56 +360,57 @@ void potential_field_avoider_periodic(void) {
       // step back if closed to obstacles
       guided_pos_body_relative(-0.5, 0, 0);
       navigation_state = SAFE;
-      break;
+      break;0-= 7
 
     case OUT_OF_BOUNDS:
       VERBOSE_PRINT("FSM: ======== OUT_OF_BOUNDS ========\n");
       /* stop */
-      guidance_h_set_guided_body_vel(0, 0);
+      guidance_h_set_guided_vel(0.0f, 0.0f);
+      // guidance_h_set_guided_body_vel(0.0f, 0.0f);
       guidance_h_set_guided_heading_rate(1.0f * RadOfDeg(25));
-      if (floor_count >= floor_count_threshold && 1.0f * floor_centroid_frac >= 0.f) {
-        navigation_state = SAFE;
-      }
+      // if (floor_count >= floor_count_threshold && 1.0f * floor_centroid_frac >= 0.f) {
+      //   navigation_state = SAFE;
+      // }
 
       /* TODO: IF WE USE BOTTOM CAMERA */
-      // /* start turn back into arena */
-      // float ox      = stateGetPositionNed_f()->x;
-      // float oy      = stateGetPositionNed_f()->y;
-      // float yaw_rad = stateGetNedToBodyEulers_f()->psi;
+      /* start turn back into arena */
+      float ox      = stateGetPositionNed_f()->x;
+      float oy      = stateGetPositionNed_f()->y;
+      float yaw_rad = stateGetNedToBodyEulers_f()->psi;
 
-      // /* normalize yaw angle to [-180, 180] deg */
-      // yaw_rad       = (yaw_rad < M_PI) ? (yaw_rad + 2 * M_PI) : yaw_rad;
-      // float oyaw    = DegOfRad(yaw_rad);
-      // oyaw          = (oyaw < -180) ? (oyaw + 360) : oyaw;
-      // oyaw          = (oyaw > 180) ? (oyaw - 360) : oyaw;
-      // VERBOSE_PRINT("[STATE] (%.2f, %.2f, %.2f) \n", ox, oy, oyaw);
+      /* normalize yaw angle to [-180, 180] deg */
+      yaw_rad       = (yaw_rad < M_PI) ? (yaw_rad + 2 * M_PI) : yaw_rad;
+      float oyaw    = DegOfRad(yaw_rad);
+      oyaw          = (oyaw < -180) ? (oyaw + 360) : oyaw;
+      oyaw          = (oyaw > 180) ? (oyaw - 360) : oyaw;
+      VERBOSE_PRINT("[STATE] (%.2f, %.2f, %.2f) \n", ox, oy, oyaw);
 
-      // if (ox > (PF_BOUND - 0.5) && oyaw > 135) {
-      //   DEBUG_PRINT("[RE-ENTER] EAST BORDER, HEADING SOUTH \n");
-      //   guidance_h_set_guided_body_vel(1.0, 0);
-      //   navigation_state = SAFE;
-      // } else if (ox < (-PF_BOUND + 0.5) && oyaw < 0 && oyaw > -45) {
-      //   DEBUG_PRINT("[RE-ENTER] WEST BORDER, HEADING NORTH \n");
-      //   guidance_h_set_guided_body_vel(1.0, 0);
-      //   navigation_state = SAFE;
-      // } else if (oy > (PF_BOUND - 0.5) && oyaw < 90 && oyaw > 45) {
-      //   DEBUG_PRINT("[RE-ENTER] NORTH BORDER, HEADING EAST \n");
-      //   guidance_h_set_guided_body_vel(1.0, 0);
-      //   navigation_state = SAFE;
-      // } else if (oy < (-PF_BOUND + 0.5) && oyaw < -135) {
-      //   DEBUG_PRINT("[RE-ENTER] SOUTH BORDER, HEADING WEST \n");
-      //   guidance_h_set_guided_body_vel(1.0, 0);
-      //   navigation_state = SAFE;
-      // } else if (ABS(ox) < (PF_BOUND - 0.5) && ABS(oy) < (PF_BOUND - 0.5)) {
-      //   guidance_h_set_guided_body_vel(0.5, 0);
-      //   navigation_state = SAFE;
-      // }
-      // else {
-      //   // DEBUG_PRINT("[RE-ENTER] ROTATING \n");
-      //   guidance_h_set_guided_body_vel(-0.1, 0);
-      //   guidance_h_set_guided_heading_rate(RadOfDeg(30));
-      //   navigation_state = OUT_OF_BOUNDS;
-      // }
+      if (ox > (PF_BOUND - 0.5) && oyaw > 135) {
+        DEBUG_PRINT("[RE-ENTER] EAST BORDER, HEADING SOUTH \n");
+        guidance_h_set_guided_body_vel(1.0, 0);
+        navigation_state = SAFE;
+      } else if (ox < (-PF_BOUND + 0.5) && oyaw < 0 && oyaw > -45) {
+        DEBUG_PRINT("[RE-ENTER] WEST BORDER, HEADING NORTH \n");
+        guidance_h_set_guided_body_vel(1.0, 0);
+        navigation_state = SAFE;
+      } else if (oy > (PF_BOUND - 0.5) && oyaw < 90 && oyaw > 45) {
+        DEBUG_PRINT("[RE-ENTER] NORTH BORDER, HEADING EAST \n");
+        guidance_h_set_guided_body_vel(1.0, 0);
+        navigation_state = SAFE;
+      } else if (oy < (-PF_BOUND + 0.5) && oyaw < -135) {
+        DEBUG_PRINT("[RE-ENTER] SOUTH BORDER, HEADING WEST \n");
+        guidance_h_set_guided_body_vel(1.0, 0);
+        navigation_state = SAFE;
+      } else if (ABS(ox) < (PF_BOUND - 0.5) && ABS(oy) < (PF_BOUND - 0.5)) {
+        guidance_h_set_guided_body_vel(0.5, 0);
+        navigation_state = SAFE;
+      }
+      else {
+        // DEBUG_PRINT("[RE-ENTER] ROTATING \n");
+        guidance_h_set_guided_body_vel(-0.1, 0);
+        guidance_h_set_guided_heading_rate(RadOfDeg(30));
+        navigation_state = OUT_OF_BOUNDS;
+      }
       break;
     default:
       break;
