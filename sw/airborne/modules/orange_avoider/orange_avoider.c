@@ -121,6 +121,7 @@ void orange_avoider_init(void)
   // Initialise random values
   srand(time(NULL));
   chooseRandomIncrementAvoidance();
+  obs_percent = 1.0f;
 
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
@@ -156,7 +157,7 @@ void orange_avoider_periodic(void)
 
   switch (navigation_state){
     case SAFE:
-      DEBUG("===== SAFE =====\n");
+      PRINT("===== SAFE =====\n");
       // Move waypoint forward
       moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
       if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY),WaypointY(WP_TRAJECTORY))){
@@ -170,7 +171,7 @@ void orange_avoider_periodic(void)
 
       break;
     case OBSTACLE_FOUND:
-      DEBUG("===== OBSTACLE_FOUND =====\n");
+      PRINT("===== OBSTACLE_FOUND =====\n");
 
       // stop
       waypoint_move_here_2d(WP_GOAL);
@@ -183,7 +184,7 @@ void orange_avoider_periodic(void)
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
-      DEBUG("===== SEARCH_FOR_SAFE_HEADING =====\n");
+      PRINT("===== SEARCH_FOR_SAFE_HEADING =====\n");
 
       increase_nav_heading(heading_increment);
 
@@ -193,7 +194,7 @@ void orange_avoider_periodic(void)
       }
       break;
     case OUT_OF_BOUNDS:
-      DEBUG("===== OUT_OF_BOUNDS =====\n");
+      PRINT("===== OUT_OF_BOUNDS =====\n");
 
       increase_nav_heading(heading_increment);
       moveWaypointForward(WP_TRAJECTORY, 1.5f);
