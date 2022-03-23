@@ -56,7 +56,7 @@ enum navigation_state_t {
 float oag_color_count_frac = 0.18f;       // obstacle detection threshold as a fraction of total of image
 float oag_floor_count_frac = 0.05f;       // floor detection threshold as a fraction of total of image
 float oag_max_speed = 0.5f;               // max flight speed [m/s]
-float oag_heading_rate = RadOfDeg(20.f);  // heading change setpoint for avoidance [rad/s]
+float oag_heading_rate = RadOfDeg(40.f);  // heading change setpoint for avoidance [rad/s]
 
 // define and initialise global variables
 enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;   // current state in state machine
@@ -65,6 +65,10 @@ int32_t floor_count = 0;                // green color count from color filter f
 int32_t floor_centroid = 0;             // floor detector centroid in y direction (along the horizon)
 float avoidance_heading_direction = 0;  // heading change direction for avoidance [rad/s]
 int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that the way ahead if safe.
+
+
+float obs_list[5][2] = {0};
+int obs_num = 0;
 
 const int16_t max_trajectory_confidence = 5;  // number of consecutive negative object detections to be sure we are obstacle free
 
@@ -96,6 +100,34 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   floor_centroid = pixel_y;
 }
 
+static abi_event obstacle_estimation_ev;
+static void obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id,
+                                   int n,
+                                   float x1,
+                                   float y1,
+                                   float x2,
+                                   float y2,
+                                   float x3,
+                                   float y3,
+                                   float x4,
+                                   float y4,
+                                   float x5,
+                                   float y5)
+{
+  obs_list[0][0] = x1;
+  obs_list[0][1] = y1;
+  obs_list[1][0] = x2;
+  obs_list[1][1] = y2;
+  obs_list[2][0] = x3;
+  obs_list[2][1] = y3;
+  obs_list[3][0] = x4;
+  obs_list[3][1] = y4;
+  obs_list[4][0] = x5;
+  obs_list[4][1] = y5;
+  obs_num = n;
+}
+
+
 /*
  * Initialisation function
  */
@@ -108,6 +140,7 @@ void orange_avoider_guided_init(void)
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  AbiBindMsgOBSTACLE_ESTIMATION(OBSTACLE_SENSOR_ID, &obstacle_estimation_ev, obstacle_estimation_cb);
 }
 
 /*
@@ -126,10 +159,7 @@ void orange_avoider_guided_periodic(void)
   int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
-
-  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
-  VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-  VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
+  
 
   // update our safe confidence using color threshold
   if(color_count < color_count_threshold){
@@ -137,7 +167,7 @@ void orange_avoider_guided_periodic(void)
   } else {
     obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
   }
-
+  // VERBOSE_PRINT("obstacle number: %i\n", obs_num);
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
@@ -145,12 +175,16 @@ void orange_avoider_guided_periodic(void)
 
   switch (navigation_state){
     case SAFE:
+
+
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
         navigation_state = OBSTACLE_FOUND;
       } else {
-        guidance_h_set_guided_body_vel(speed_sp, 0);
+        guidance_h_set_guided_body_vel(1.5, 0);
+        //guidance_h_set_guided_heading_rate(1 * RadOfDeg(15));
+        // guidance_h_set_guided_pos(1.0f, 1.0f);
       }
 
       break;

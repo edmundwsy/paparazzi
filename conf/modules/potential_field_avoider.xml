@@ -1,0 +1,40 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="potential_field_avoider" dir="orange_avoider">
+  <doc>
+    <description>
+This module is an example module for the course AE4317 Autonomous Flight of Micro Air Vehicles at the TU Delft.
+This module is used in combination with a color filter (cv_detect_color_object) and the navigation mode of the autopilot.
+The avoidance strategy is to simply count the total number of orange pixels. When above a certain percentage threshold,
+(given by color_count_frac) we assume that there is an obstacle and we turn.
+
+The color filter settings are set using the cv_detect_color_object. This module can run multiple filters simultaneously
+so you have to define which filter to use with the POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID setting.
+    </description>
+    <define name="POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to recieve for orange pole detection."/>
+  </doc>
+    <settings>
+    <dl_settings>
+      <dl_settings name="Avoider">
+         <dl_setting var="K_ATTRACTION" min="0" step="0.1" max="20"/>
+         <dl_setting var="K_REPULSION" min="0" step="0.1" max="20"/>
+         <dl_setting var="PF_GOAL_THRES" min="0" step="0.1" max="1.5"/>
+         <dl_setting var="PF_MAX_ITER" min="0" step="1" max="20"/>
+         <dl_setting var="PF_STEP_SIZE" min="0" step="0.1" max="3"/>
+         <dl_setting var="PF_INFLUENCE_RADIUS" min="0" step="0.1" max="3.0"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+  
+  <dep>
+    <depends>cv_detect_color_object</depends>
+  </dep>
+  <header>
+    <file name="potential_field_avoider.h"/>
+  </header>
+  <init fun="potential_field_avoider_init()"/>
+  <periodic fun="potential_field_avoider_periodic()" freq="4"/>
+  <makefile target="ap|nps">
+    <file name="potential_field_avoider.c"/>
+  </makefile>
+</module>

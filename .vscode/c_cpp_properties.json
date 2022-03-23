@@ -9,7 +9,10 @@
                 "limitSymbolsToIncludedHeaders": true
             },
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/sw/ext/opencv_bebop/install_arm/include",
+                "/usr/arm-none-eabi/include/c++/7.3.1",
+                "/usr/arm-none-eabi/include/c++/7.3.1/arm-none-eabi"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/arm-none-eabi-gcc",

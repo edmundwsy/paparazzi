@@ -1,6 +1,7 @@
 # ignore html dir for github pages
 /doc/generated
 /doc/manual/generated
+/.vscode
 
 *.so
 *.[oa]
@@ -197,4 +198,8 @@ tests/results/*
 
 # K-develop
 *.kate-swp
+<<<<<<< HEAD
 .vscode/settings.json
+=======
+.vscode/c_cpp_properties.json
+>>>>>>> 7fd9849d2d79af614e1a2cc9c6404e64870ade24

@@ -1,0 +1,5 @@
+/home/smoggy/paparazzi/OpenCV/CMakeFiles/rebuild_cache.dir
+/home/smoggy/paparazzi/OpenCV/CMakeFiles/edit_cache.dir
+/home/smoggy/paparazzi/OpenCV/CMakeFiles/depth_est.dir
+/home/smoggy/paparazzi/OpenCV/CMakeFiles/package_source.dir
+/home/smoggy/paparazzi/OpenCV/CMakeFiles/package.dir
