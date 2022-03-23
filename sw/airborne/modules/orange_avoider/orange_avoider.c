@@ -31,6 +31,7 @@
 #define ORANGE_AVOIDER_VERBOSE TRUE
 
 #define PRINT(string,...) fprintf(stderr, "[orange_avoider->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
+#define DEBUG(string, ...) fprintf(stderr, " %s " string, ##__VA_ARGS__)
 #if ORANGE_AVOIDER_VERBOSE
 #define VERBOSE_PRINT PRINT
 #else
@@ -52,6 +53,11 @@ enum navigation_state_t {
 
 // define settings
 float oa_color_count_frac = 0.18f;
+
+// define obstacles from Moji's detector
+float obs_list[5][2];
+uint8_t obs_num;
+float   obs_percent;
 
 // define and initialise global variables
 enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;
@@ -94,16 +100,16 @@ static void obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id,
                                    float x5,
                                    float y5)
 {
-  obs_list[0][0] = x1;
-  obs_list[0][1] = y1;
-  obs_list[1][0] = x2;
-  obs_list[1][1] = y2;
-  obs_list[2][0] = x3;
-  obs_list[2][1] = y3;
-  obs_list[3][0] = x4;
-  obs_list[3][1] = y4;
-  obs_list[4][0] = x5;
-  obs_list[4][1] = y5;
+  obs_percent = x1;
+  // obs_list[0][1] = y1;
+  // obs_list[1][0] = x2;
+  // obs_list[1][1] = y2;
+  // obs_list[2][0] = x3;
+  // obs_list[2][1] = y3;
+  // obs_list[3][0] = x4;
+  // obs_list[3][1] = y4;
+  // obs_list[4][0] = x5;
+  // obs_list[4][1] = y5;
   obs_num = n;
 }
 
@@ -131,16 +137,17 @@ void orange_avoider_periodic(void)
   }
 
   // compute current color thresholds
-  int32_t color_count_threshold = 0.04;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  int32_t color_count_threshold = 85;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
   VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
 
   // update our safe confidence using color threshold
-  if(obs_list[0][0] < color_count_threshold){
+  if(obs_percent < color_count_threshold){
     obstacle_free_confidence++;
   } else {
     obstacle_free_confidence = 0;  // be more cautious with positive obstacle detections
   }
+  VERBOSE_PRINT("obstacle free confidence: %d percentages: %f \n", obstacle_free_confidence, obs_percent);
 
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
@@ -149,6 +156,7 @@ void orange_avoider_periodic(void)
 
   switch (navigation_state){
     case SAFE:
+      DEBUG("===== SAFE =====\n");
       // Move waypoint forward
       moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
       if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY),WaypointY(WP_TRAJECTORY))){
@@ -156,11 +164,14 @@ void orange_avoider_periodic(void)
       } else if (obstacle_free_confidence == 0){
         navigation_state = OBSTACLE_FOUND;
       } else {
+        navigation_state = SAFE;
         moveWaypointForward(WP_GOAL, moveDistance);
       }
 
       break;
     case OBSTACLE_FOUND:
+      DEBUG("===== OBSTACLE_FOUND =====\n");
+
       // stop
       waypoint_move_here_2d(WP_GOAL);
       waypoint_move_here_2d(WP_TRAJECTORY);
@@ -172,6 +183,8 @@ void orange_avoider_periodic(void)
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
+      DEBUG("===== SEARCH_FOR_SAFE_HEADING =====\n");
+
       increase_nav_heading(heading_increment);
 
       // make sure we have a couple of good readings before declaring the way safe
@@ -180,6 +193,8 @@ void orange_avoider_periodic(void)
       }
       break;
     case OUT_OF_BOUNDS:
+      DEBUG("===== OUT_OF_BOUNDS =====\n");
+
       increase_nav_heading(heading_increment);
       moveWaypointForward(WP_TRAJECTORY, 1.5f);
 

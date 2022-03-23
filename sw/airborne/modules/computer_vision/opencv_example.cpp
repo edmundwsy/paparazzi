@@ -47,7 +47,8 @@ Mat labels;
 Mat dst1;
 int valid_labels[20] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 Vec3b colors[20];
-int obs_num_detected = 0;
+int obs_area_count[5] = {0, 0, 0, 0, 0};
+int obs_num_detected  = 0;
 
 Mat camera_matrix_ = (cv::Mat_<float>(3,3)<<290.0087, 0, 213.3118, 0, 290.6121, 272.5280, 0, 0, 1);
 Mat distor_coeffs = (cv::Mat_<float>(1,5) << -0.3098,  0.0933, 0, 0, -0.0127);
@@ -86,7 +87,10 @@ int opencv_example(char *img, int width, int height){
 //  printf("Cumulative area: %f\n",cum_area);
   // Filtering small obstacles
   for (int i = 1; i < num_labels; i++) {
-    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
+    if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 
+    || stats.at<int>(i, CC_STAT_HEIGHT) < 30 
+    || float(width / height) > 5 
+    || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
       obs_num_detected++;
       cum_area += stats.at<int>(i, CC_STAT_AREA);
@@ -123,7 +127,7 @@ int opencv_example(char *img, int width, int height){
 //  }
   
   colorbgr_opencv_to_yuv422(M1, img, width, height);
-
+  printf("[CV] precent_obstacles %f\n", percent_obstacles);
 //  AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,0,0,0,0,0,0,0,0,0,0);
   AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,percent_obstacles,0,0,0,0,0,0,0,0,0);
   return 0;
