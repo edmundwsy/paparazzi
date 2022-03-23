@@ -65,7 +65,7 @@ float PF_GOAL_THRES       = 0.2;  // threshold near the goal
 float PF_MAX_ITER         = 10;   // max iteration of potential field iterations
 float PF_STEP_SIZE        = 1.0;  // step size between current states and new goal
 float PF_INFLUENCE_RADIUS = 3.0;  // distance where repulsion can take effect
-float PF_MAX_VELOCITY     = 1.2;  // maximum velocity
+float PF_MAX_VELOCITY     = 0.8;  // maximum velocity
 float PF_FORWARD_WEIGHT   = 1.0;  // weight for moving forward
 float PF_BOUND            = 2.7f;
 
@@ -363,6 +363,7 @@ void potential_field_avoider_periodic(void) {
     case OUT_OF_BOUNDS:
       VERBOSE_PRINT("FSM: ======== OUT_OF_BOUNDS ========\n");
       /* stop */
+      guidance_h_set_guided_vel(0, 0);
       guidance_h_set_guided_body_vel(0, 0);
       guidance_h_set_guided_heading_rate(1.0f * RadOfDeg(25));
       if (floor_count >= floor_count_threshold && 1.0f * floor_centroid_frac >= 0.f) {
