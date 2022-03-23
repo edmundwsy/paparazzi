@@ -59,7 +59,8 @@ int32_t color_count = 0;                // orange color count from color filter 
 int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that the way ahead is safe.
 float heading_increment = 5.f;          // heading angle increment [deg]
 float maxDistance = 2.25;               // max waypoint displacement [m]
-
+float obs_list[5][2] = {0};
+int obs_num = 0;
 const int16_t max_trajectory_confidence = 5; // number of consecutive negative object detections to be sure we are obstacle free
 
 /*
@@ -133,39 +134,62 @@ void orange_avoider_periodic(void)
   // compute current color thresholds
   int32_t color_count_threshold = 0.04;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
-  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
+  VERBOSE_PRINT("================================================================================\n");
 
+  // update our safe confidence using color threshold
+  VERBOSE_PRINT("Pixel Percent: %f + %f\n",obs_list[0][0], color_count_threshold);
   // update our safe confidence using color threshold
   if(obs_list[0][0] < color_count_threshold){
     obstacle_free_confidence++;
+        VERBOSE_PRINT("Increasing Obstacle free confidence\n");
+
   } else {
     obstacle_free_confidence = 0;  // be more cautious with positive obstacle detections
+        VERBOSE_PRINT("Decreasing Obstacle free confidence because of detection\n");
+
+
   }
 
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
   float moveDistance = fminf(maxDistance, 0.2f * obstacle_free_confidence);
-
+  VERBOSE_PRINT("Obs free conf before checking state: %d\n", obstacle_free_confidence);
+//  VERBOSE_PRINT("Obs free conf: %f %f\n", obstacle_free_confidence, obstacle_free_confidence);
+//  VERBOSE_PRINT()
+  VERBOSE_PRINT("starting nav state: %d\n", navigation_state);
   switch (navigation_state){
     case SAFE:
       // Move waypoint forward
       moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
       if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY),WaypointY(WP_TRAJECTORY))){
+
+      VERBOSE_PRINT("Out of green area\n");
+//      VERBOSE_PRINT("Floor Count: %d\n", floor_count);
+//      VERBOSE_PRINT("Floor Count Threshold: %d\n", floor_count_threshold);
+//      VERBOSE_PRINT("Floor centroid: %f\n", fabsf(floor_centroid_frac));
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
+            VERBOSE_PRINT("Obstacle found\n");
+
         navigation_state = OBSTACLE_FOUND;
       } else {
+            VERBOSE_PRINT("Moving ahead\n");
+
         moveWaypointForward(WP_GOAL, moveDistance);
       }
 
       break;
     case OBSTACLE_FOUND:
       // stop
+            VERBOSE_PRINT("Stopping for obstacle\n");
+
       waypoint_move_here_2d(WP_GOAL);
       waypoint_move_here_2d(WP_TRAJECTORY);
 
       // randomly select new search direction
+            VERBOSE_PRINT("Searching for new heading\n");
+
       chooseRandomIncrementAvoidance();
 
       navigation_state = SEARCH_FOR_SAFE_HEADING;
@@ -176,27 +200,38 @@ void orange_avoider_periodic(void)
 
       // make sure we have a couple of good readings before declaring the way safe
       if (obstacle_free_confidence >= 2){
+            VERBOSE_PRINT("Obstacle cleared\n");
+
         navigation_state = SAFE;
       }
       break;
     case OUT_OF_BOUNDS:
       increase_nav_heading(heading_increment);
+            VERBOSE_PRINT("Stopping for out of bounds\n");
+
       moveWaypointForward(WP_TRAJECTORY, 1.5f);
+
 
       if (InsideObstacleZone(WaypointX(WP_TRAJECTORY),WaypointY(WP_TRAJECTORY))){
         // add offset to head back into arena
         increase_nav_heading(heading_increment);
 
         // reset safe counter
+                VERBOSE_PRINT("Resetting safe counter after renetering\n");
+
         obstacle_free_confidence = 0;
 
         // ensure direction is safe before continuing
         navigation_state = SEARCH_FOR_SAFE_HEADING;
       }
+
       break;
     default:
       break;
   }
+
+  VERBOSE_PRINT("end nav state: %d\n", navigation_state);
+  VERBOSE_PRINT("================================================================================\n");
   return;
 }
 
