@@ -81,17 +81,20 @@ int opencv_example(char *img, int width, int height){
   morphologyEx(image, src, MORPH_OPEN, kernel);
   labels     = Mat::zeros(src.size(), src.type());
   int num_labels = min(connectedComponentsWithStats(src, labels, stats, centroids, 4),20);
+  float cum_area = 0.0;
   float percent_obstacles = 0.0;
+//  printf("Cumulative area: %f\n",cum_area);
   // Filtering small obstacles
-  for (int i = 0; i < num_labels; i++) {
+  for (int i = 1; i < num_labels; i++) {
     if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 || float(width / height) > 5 || stats.at<int>(i, CC_STAT_AREA) < 1000)) {
       valid_labels[i] = i;
       obs_num_detected++;
-      percent_obstacles += stats.at<int>(i, CC_STAT_AREA);
+      cum_area += stats.at<int>(i, CC_STAT_AREA);
     }
   }
-
-  percent_obstacles = percent_obstacles / (width*height);
+//  printf("Cumulative area: %f\n",cum_area);
+//  printf("w and h: %f %f\n", width, height);
+  percent_obstacles = cum_area / (width*height);
 //  // generate background color => black
 //  colors[0] = Vec3b(0, 0, 0);
 //  // generate region color => random
