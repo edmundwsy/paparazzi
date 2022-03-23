@@ -81,6 +81,32 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
   color_count = quality;
 }
 
+static void obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id,
+                                   int n,
+                                   float x1,
+                                   float y1,
+                                   float x2,
+                                   float y2,
+                                   float x3,
+                                   float y3,
+                                   float x4,
+                                   float y4,
+                                   float x5,
+                                   float y5)
+{
+  obs_list[0][0] = x1;
+  obs_list[0][1] = y1;
+  obs_list[1][0] = x2;
+  obs_list[1][1] = y2;
+  obs_list[2][0] = x3;
+  obs_list[2][1] = y3;
+  obs_list[3][0] = x4;
+  obs_list[3][1] = y4;
+  obs_list[4][0] = x5;
+  obs_list[4][1] = y5;
+  obs_num = n;
+}
+
 /*
  * Initialisation function, setting the colour filter, random seed and heading_increment
  */
@@ -105,15 +131,15 @@ void orange_avoider_periodic(void)
   }
 
   // compute current color thresholds
-  int32_t color_count_threshold = oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  int32_t color_count_threshold = 0.04;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
   VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
 
   // update our safe confidence using color threshold
-  if(color_count < color_count_threshold){
+  if(obs_list[0][0] < color_count_threshold){
     obstacle_free_confidence++;
   } else {
-    obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
+    obstacle_free_confidence = 0;  // be more cautious with positive obstacle detections
   }
 
   // bound obstacle_free_confidence
