@@ -54,7 +54,7 @@ enum navigation_state_t {
 
 // define settings
 float oag_color_count_frac = 0.18f;       // obstacle detection threshold as a fraction of total of image
-float oag_floor_count_frac = 0.01f;       // floor detection threshold as a fraction of total of image
+float oag_floor_count_frac = 0.05f;       // floor detection threshold as a fraction of total of image
 float oag_max_speed = 0.5f;               // max flight speed [m/s]
 float oag_heading_rate = RadOfDeg(40.f);  // heading change setpoint for avoidance [rad/s]
 
@@ -70,7 +70,7 @@ int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that 
 float obs_list[5][2] = {0};
 int obs_num = 0;
 
-const int16_t max_trajectory_confidence = 6;  // number of consecutive negative object detections to be sure we are obstacle free
+const int16_t max_trajectory_confidence = 5;  // number of consecutive negative object detections to be sure we are obstacle free
 
 // This call back will be used to receive the color count from the orange detector
 #ifndef ORANGE_AVOIDER_VISUAL_DETECTION_ID
@@ -156,57 +156,44 @@ void orange_avoider_guided_periodic(void)
   }
 
   // compute current color thresholds
-  float color_count_threshold = 0.04; //oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
   
-  VERBOSE_PRINT("================================================================================\n");
 
   // update our safe confidence using color threshold
-  VERBOSE_PRINT("Pixel Percent: %f + %f\n",obs_list[0][0], color_count_threshold);
+  printf("Pixel Percent: %f + %d",obs_list[0][0], color_count_threshold);
   if(obs_list[0][0] < color_count_threshold){
     obstacle_free_confidence++;
-    VERBOSE_PRINT("Increasing Obstacle free confidence\n");
   } else {
-    obstacle_free_confidence=0;  // be more cautious with positive obstacle detections
-    VERBOSE_PRINT("Decreasing Obstacle free confidence because of detection\n");
+    obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
   }
-
+  VERBOSE_PRINT("obstacle number: %i\n", obs_num);
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
   float speed_sp = fminf(oag_max_speed, 0.2f * obstacle_free_confidence);
 
-  VERBOSE_PRINT("Obs free conf before checking state: %d\n", obstacle_free_confidence);
-//  VERBOSE_PRINT("Obs free conf: %f %f\n", obstacle_free_confidence, obstacle_free_confidence);
-//  VERBOSE_PRINT()
-  VERBOSE_PRINT("starting nav state: %d\n", navigation_state);
   switch (navigation_state){
     case SAFE:
 
 
-      if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.25){
-      VERBOSE_PRINT("Out of green area\n");
-      VERBOSE_PRINT("Floor Count: %d\n", floor_count);
-      VERBOSE_PRINT("Floor Count Threshold: %d\n", floor_count_threshold);
-      VERBOSE_PRINT("Floor centroid: %f\n", fabsf(floor_centroid_frac));
+      if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
-      VERBOSE_PRINT("Obstacle found\n");
         navigation_state = OBSTACLE_FOUND;
       } else {
-      VERBOSE_PRINT("Moving ahead\n");
-        guidance_h_set_guided_body_vel(1.0, 0);
+        guidance_h_set_guided_body_vel(1.5, 0);
+        //guidance_h_set_guided_heading_rate(1 * RadOfDeg(15));
+        // guidance_h_set_guided_pos(1.0f, 1.0f);
       }
 
       break;
     case OBSTACLE_FOUND:
       // stop
-      VERBOSE_PRINT("Stopping for obstacle\n");
-      guidance_h_set_guided_body_vel(-0.2, 0);
+      guidance_h_set_guided_body_vel(0, 0);
 
       // randomly select new search direction
-      VERBOSE_PRINT("Searching for new heading\n");
       chooseRandomIncrementAvoidance();
 
       navigation_state = SEARCH_FOR_SAFE_HEADING;
@@ -217,14 +204,12 @@ void orange_avoider_guided_periodic(void)
 
       // make sure we have a couple of good readings before declaring the way safe
       if (obstacle_free_confidence >= 2){
-      VERBOSE_PRINT("Obstacle cleared\n");
         guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi);
         navigation_state = SAFE;
       }
       break;
     case OUT_OF_BOUNDS:
       // stop
-      VERBOSE_PRINT("Stopping for out of bounds\n");
       guidance_h_set_guided_body_vel(0, 0);
 
       // start turn back into arena
@@ -235,16 +220,11 @@ void orange_avoider_guided_periodic(void)
       break;
     case REENTER_ARENA:
       // force floor center to opposite side of turn to head back into arena
-      VERBOSE_PRINT("Floor Count: %d\n", floor_count);
-      VERBOSE_PRINT("Floor Count Threshold: %d\n", floor_count_threshold);
-      VERBOSE_PRINT("Floor centroid: %f\n", fabsf(floor_centroid_frac));
-      VERBOSE_PRINT("Avoiding heading direction: %f\n", avoidance_heading_direction);
       if (floor_count >= floor_count_threshold && avoidance_heading_direction * floor_centroid_frac >= 0.f){
         // return to heading mode
         guidance_h_set_guided_heading(stateGetNedToBodyEulers_f()->psi);
 
-        // reset safe counter'
-        VERBOSE_PRINT("Resetting safe counter after renetering\n");
+        // reset safe counter
         obstacle_free_confidence = 0;
 
         // ensure direction is safe before continuing
@@ -254,8 +234,6 @@ void orange_avoider_guided_periodic(void)
     default:
       break;
   }
-  VERBOSE_PRINT("end nav state: %d\n", navigation_state);
-  VERBOSE_PRINT("================================================================================\n");
   return;
 }
 
@@ -274,5 +252,3 @@ uint8_t chooseRandomIncrementAvoidance(void)
   }
   return false;
 }
-
-
