@@ -54,8 +54,8 @@ int    valid_labels[20] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
                         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 Vec3b  colors[20];
 int    obs_num_detected = 0;
-Mat    camera_matrix_   = (cv::Mat_<float>(3, 3) << 282.9480391701469, -0.527071354834133,
-                      28.9068266678759, 0, 282.665185424907, 275.109826551610, 0, 0, 1);
+Mat    camera_matrix_   = (cv::Mat_<float>(3, 3) << 141.97, -0,
+                      14.5, 0, 141.33, 137.55, 0, 0, 1);
 Mat distor_coeffs = (cv::Mat_<float>(1, 5) << -0.3122, 0.0860, -0.0004594689988183520, -0.0020, 0);
 float depth_array[5]      = {0};
 float x_position_array[5] = {0};
@@ -121,14 +121,14 @@ int opencv_example(char *img, int width, int height) {
     }
   }
 
-  /* VISUALIZATION */
-  // generate background color => black
+  // /* VISUALIZATION */
+  // /* generate background color => black */
   // colors[0] = Vec3b(0, 0, 0);
-  // generate region color => random
+  // /* generate region color => random */
   // for (int i = 1; i < num_labels; i++) {
   //   colors[i] = Vec3b(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
   // }
-  // display components, drawing
+  // /* display components, drawing */
   // dst1 = Mat::zeros(src.size(), CV_8UC3);
   // for (int row = 0; row < src.rows; row++) {
   //   for (int col = 0; col < src.cols; col++) {
@@ -139,7 +139,7 @@ int opencv_example(char *img, int width, int height) {
   //   }
   // }
 
-  // static and drawing
+  // /* static and drawing */
   // for (int i = 1; i < num_labels; i++) {
   //   if (valid_labels[i] == i) {
   //     circle(dst1, Point(centroids.at<Vec2d>(i, 0)[0], centroids.at<Vec2d>(i, 0)[1]), 2,
@@ -174,12 +174,12 @@ int opencv_example(char *img, int width, int height) {
   // printf("obstacle depth (meters): %f\n", depth_array[i]);
   // }
 
-  // colorbgr_opencv_to_yuv422(dst1, img, width, height);
+  colorbgr_opencv_to_yuv422(dst1, img, width, height);
 
-  AbiSendMsgOBSTACLE_ESTIMATION(1, obs_num_detected, x_position_array[0], y_position_array[0],
-                                x_position_array[1], y_position_array[1], x_position_array[2],
-                                y_position_array[2], x_position_array[3], y_position_array[3],
-                                x_position_array[4], y_position_array[4]);
+  AbiSendMsgOBSTACLE_ESTIMATION(1, obs_num_detected, depth_array[0], y_position_array[0],
+                                depth_array[1], y_position_array[1], depth_array[2],
+                                y_position_array[2], depth_array[3], y_position_array[3],
+                                depth_array[4], y_position_array[4]);
   return 0;
 }
 
