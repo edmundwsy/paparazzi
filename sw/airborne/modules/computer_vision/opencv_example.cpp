@@ -82,8 +82,8 @@ int opencv_example(char *img, int width, int height){
   morphologyEx(image, src, MORPH_OPEN, kernel);
   labels     = Mat::zeros(src.size(), src.type());
   int num_labels = min(connectedComponentsWithStats(src, labels, stats, centroids, 4),20);
-  float cum_area = 0.0;
-  float percent_obstacles = 0.0;
+  float cum_area = 0.0f;
+  float percent_obstacles = 0.0f;
 //  printf("Cumulative area: %f\n",cum_area);
   // Filtering small obstacles
   for (int i = 1; i < num_labels; i++) {
@@ -127,7 +127,7 @@ int opencv_example(char *img, int width, int height){
 //  }
   
   colorbgr_opencv_to_yuv422(M1, img, width, height);
-  printf("[CV] precent_obstacles %f\n", percent_obstacles);
+  printf("[CV] precent_obstacles %f | %f\n", cum_area, percent_obstacles);
 //  AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,0,0,0,0,0,0,0,0,0,0);
   AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,percent_obstacles,0,0,0,0,0,0,0,0,0);
   return 0;
