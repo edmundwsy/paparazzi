@@ -75,9 +75,9 @@ int opencv_example(char *img, int width, int height) {
 
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
 
-  undistort(image, M1, camera_matrix_, distor_coeffs);
+  // undistort(image, M1, camera_matrix_, distor_coeffs);
 
-  blur(M1, image, Size(5, 5));
+  // blur(M1, image, Size(5, 5));
   // bilateralFilter(image, image_tmp, 15, 25, 25);
   cv::inRange(image, low, high, image1);
   cv::inRange(image, low2, high2, image2);

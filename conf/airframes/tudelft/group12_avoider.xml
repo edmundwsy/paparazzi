@@ -8,7 +8,7 @@
     <target name="ap" board="bebop">
       <define name="VIDEO_CAPTURE_PATH" value="/data/ftp/internal_000/images"/>
       <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000/log"/>
-      <define name="MT9V117_TARGET_FPS" value="20"/>
+      <!-- <define name="MT9V117_TARGET_FPS" value="20"/> -->
       
       <!-- Detect orange -->
       <define name="COLOR_OBJECT_DETECTOR_LUM_MIN1" value="30"/>
@@ -67,15 +67,17 @@
     <module name="logger_file"/>
 
     <!-- Video/Camera modules -->
-    <module name="bebop_cam"/>
-    <!--module name="bebop_ae_awb">
-      <define name="CV_AE_AWB_VERBOSE" value="0" />
-    </module-->
+    <module name="bebop_cam">
+      <configure name="MT9V117_TARGET_FPS" value="1"/> <!-- bottom cam-->
+      <define name="MT9F002_TARGET_FPS" value="20"/> <!-- front cam -->
+      <define name="MT9F002_OUTPUT_WIDTH" value="120"/>
+      <define name="MT9F002_OUTPUT_HEIGHT" value="260"/>
+    </module>
     <module name="video_capture">
       <define name="VIDEO_CAPTURE_CAMERA" value="front_camera"/>
       <define name="VIDEO_CAPTURE_FPS" value="10"/>
     </module>
-    <module name="cv_detect_color_object">
+    <!-- <module name="cv_detect_color_object">
       <define name="COLOR_OBJECT_DETECTOR_CAMERA1" value="front_camera"/>
       <define name="COLOR_OBJECT_DETECTOR_FPS1" value="0"/>
       <define name="COLOR_OBJECT_DETECTOR_DRAW1" value="1"/>
@@ -83,7 +85,7 @@
       <define name="COLOR_OBJECT_DETECTOR_CAMERA2" value="front_camera"/>
       <define name="COLOR_OBJECT_DETECTOR_FPS2" value="0"/>
       <define name="COLOR_OBJECT_DETECTOR_DRAW2" value="1"/>
-    </module>
+    </module> -->
     <module name="potential_field_avoider">
       <define name="POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID" value="COLOR_OBJECT_DETECTION1_ID"/>
       <define name="FLOOR_VISUAL_DETECTION_ID" value="COLOR_OBJECT_DETECTION2_ID"/>
@@ -104,12 +106,12 @@
       <define name="MAX_TRACK_CORNERS" value="10"/>
     </module>  -->
 
-    <module name="video_rtp_stream">
+    <!-- <module name="video_rtp_stream">
       <define name="VIEWVIDEO_CAMERA" value="front_camera"/>
       <define name="VIEWVIDEO_CAMERA2" value="bottom_camera"/>
       <define name="VIEWVIDEO_DOWNSIZE_FACTOR" value="1"/>
       <define name="VIEWVIDEO_QUALITY_FACTOR" value="40"/>
-    </module>
+    </module> -->
     <module name="cv_opencvdemo">
       <define name="OPENCVDEMO_CAMERA" value="front_camera"/>
       <define name="OPENCVDEMO_GRAYSCALE" value="1"/>
@@ -147,8 +149,8 @@
   </command_laws>
   
   <section name="BEBOP_FRONT_CAMERA" prefix="MT9F002_">
-    <define name="OUTPUT_HEIGHT" value="520" />
-    <define name="OUTPUT_WIDTH" value="240" />
+    <!-- <define name="OUTPUT_HEIGHT" value="520" />
+    <define name="OUTPUT_WIDTH" value="240" /> -->
     <define name="OFFSET_X" value="0.09" />
     <define name="ZOOM" value="1.25"/>
     <define name="GAIN_GREEN1" value="10.0"/>
