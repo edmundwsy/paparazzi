@@ -86,6 +86,7 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
 {
   color_count = quality;
 }
+static abi_event obstacle_estimation_ev;
 
 static void obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id,
                                    int n,
@@ -125,6 +126,8 @@ void orange_avoider_init(void)
 
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
+  AbiBindMsgOBSTACLE_ESTIMATION(OBSTACLE_SENSOR_ID, &obstacle_estimation_ev, obstacle_estimation_cb);
+
 }
 
 /*
@@ -138,9 +141,9 @@ void orange_avoider_periodic(void)
   }
 
   // compute current color thresholds
-  int32_t color_count_threshold = 85;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  float color_count_threshold = 0.04;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
-  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
+//  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
 
   // update our safe confidence using color threshold
   if(obs_percent < color_count_threshold){
