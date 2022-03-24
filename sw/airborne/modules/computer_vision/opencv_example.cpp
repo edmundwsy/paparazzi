@@ -68,6 +68,9 @@ float c_y = camera_matrix_.at<float>(1, 2);
 float c_x = camera_matrix_.at<float>(0, 2);
 float y_0 = 330;  // 330 mm width of the pole in real life in original vertical orientation
 
+float area_count = 0.0f;
+float obstacle_percentage = 0.0f;
+
 int opencv_example(char *img, int width, int height) {
   obs_num_detected = 0;
   Mat M(height, width, CV_8UC2, img);
@@ -96,7 +99,11 @@ int opencv_example(char *img, int width, int height) {
 
   // Filtering and calculate depth
   int j = 0;
+  obstacle_percentage = 0.0f;
+  area_count          = 0.0f;
   for (int i = 1; i < num_labels; i++) {
+    area_count += stats.at<int>(i, CC_STAT_AREA);
+
     if (!(stats.at<int>(i, CC_STAT_WIDTH) < 30 || stats.at<int>(i, CC_STAT_HEIGHT) < 30 ||
           float(stats.at<int>(i, CC_STAT_WIDTH) / stats.at<int>(i, CC_STAT_HEIGHT)) > 5 ||
           stats.at<int>(i, CC_STAT_AREA) < 1000)) {
@@ -115,11 +122,13 @@ int opencv_example(char *img, int width, int height) {
       depth_array[j]      = depth_array[j] / 1000;
       y_position_array[j] = x_position_array[j] / 1000;
       x_position_array[j] = y_position_array[j] / 1000;
-      printf("obstacle depth (meters): %f\n", depth_array[j]);
-      printf("position obstacle x: %f   y: %f\n", x_position_array[j], y_position_array[j]);
+      printf("obstacle depth: %f\n", depth_array[j]);
+      printf("obstacle position x: %f   y: %f\n", x_position_array[j], y_position_array[j]);
       j++;
     }
   }
+
+  obstacle_percentage = area_count / (width * height);
 
   // /* VISUALIZATION */
   // /* generate background color => black */
@@ -152,6 +161,7 @@ int opencv_example(char *img, int width, int height) {
   // }
 
   printf("obstacle NUMBER: %i\n", obs_num_detected);
+  printf("Obstacle AREA: %f | %f % \n", area_count, obstacle_percentage);
   // Calculate the depth (Koen Method)
   // https://mayavan95.medium.com/3d-position-estimation-of-a-known-object-using-a-single-camera-7a82b37b326b
   // assumptions:
@@ -174,12 +184,12 @@ int opencv_example(char *img, int width, int height) {
   // printf("obstacle depth (meters): %f\n", depth_array[i]);
   // }
 
-  colorbgr_opencv_to_yuv422(dst1, img, width, height);
+  // colorbgr_opencv_to_yuv422(dst1, img, width, height);
 
   AbiSendMsgOBSTACLE_ESTIMATION(1, obs_num_detected, depth_array[0], y_position_array[0],
                                 depth_array[1], y_position_array[1], depth_array[2],
                                 y_position_array[2], depth_array[3], y_position_array[3],
-                                depth_array[4], y_position_array[4]);
+                                area_count, obstacle_percentage);
   return 0;
 }
 

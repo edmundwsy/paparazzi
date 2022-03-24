@@ -83,8 +83,8 @@ int16_t obstacle_free_confidence    = 0;    // certainty that the way ahead if s
 float oag_color_count_frac = 0.18f;  // obstacle detection threshold as a fraction of total of image
 float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction of total of image
 int32_t color_count        = 0;
-int32_t floor_count        = 0;
-int32_t floor_centroid     = 0;  // floor detector centroid in y direction (along the horizon)
+float   _obstacle_count     = 0.0f;
+float   _obstacle_percetage = 0.0f;  // floor detector centroid in y direction (along the horizon)
 
 // Define obstacle position
 #define NUM_OBS 5
@@ -160,37 +160,6 @@ struct FloatVect2 globalToBodyPosition(struct FloatVect2* global);
  */
 double random_position_y(void);
 
-// This call back will be used to receive the color count from the orange detector
-// #ifndef POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID
-// #error This module requires two color filters, as such you have to define
-// POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to the orange filter #error Please define
-// POTENTIAL_FIELD_AVOIDER_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or
-// // COLOR_OBJECT_DETECTION2_ID in your airframe
-// #endif
-// static abi_event color_detection_ev;
-// static void      color_detection_cb(uint8_t __attribute__((unused)) sender_id,
-//                                     int16_t __attribute__((unused)) pixel_x,
-//                                     int16_t __attribute__((unused)) pixel_y,
-//                                     int16_t __attribute__((unused)) pixel_width,
-//                                     int16_t __attribute__((unused)) pixel_height, int32_t
-//                                     quality, int16_t __attribute__((unused)) extra) {
-//   color_count = quality;
-// }
-
-#ifndef FLOOR_VISUAL_DETECTION_ID
-#error This module requires two color filters, as such you have to define FLOOR_VISUAL_DETECTION_ID to the orange filter
-#error Please define FLOOR_VISUAL_DETECTION_ID to be COLOR_OBJECT_DETECTION1_ID or COLOR_OBJECT_DETECTION2_ID in your airframe
-#endif
-static abi_event floor_detection_ev;
-static void      floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
-                                    int16_t __attribute__((unused)) pixel_x, int16_t pixel_y,
-                                    int16_t __attribute__((unused)) pixel_width,
-                                    int16_t __attribute__((unused)) pixel_height, int32_t quality,
-                                    int16_t __attribute__((unused)) extra) {
-  floor_count    = quality;
-  floor_centroid = pixel_y;
-}
-
 static abi_event obstacle_estimation_ev;
 static void      obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id, int n, float x1,
                                         float y1, float x2, float y2, float x3, float y3, float x4,
@@ -203,9 +172,11 @@ static void      obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_i
   _obs[2].y     = y3;
   _obs[3].x     = x4;
   _obs[3].y     = y4;
-  _obs[4].x     = x5;
-  _obs[4].y     = y5;
-  num_valid_obs = n;
+  _obs[4].x     = 0.0f;
+  _obs[4].y     = 0.0f;
+  _obstacle_count = x5;
+  _obstacle_percetage = y5;
+  num_valid_obs       = n;
 }
 
 /*
@@ -226,11 +197,11 @@ void potential_field_avoider_init(void) {
 void potential_field_avoider_periodic(void) {
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
     navigation_state = SAFE;
-    VERBOSE_PRINT("[GUIDE] guidance_h.mode is %i \n", guidance_h.mode);
+    // VERBOSE_PRINT("[GUIDE] guidance_h.mode is %i \n", guidance_h.mode);
     return;
   }
   struct FloatVect2 state = {stateGetPositionNed_f()->x, stateGetPositionNed_f()->y};
-    // VERBOSE_PRINT("[STATE] (%.2f, %.2f)\n", state.x, state.y);
+  // VERBOSE_PRINT("[STATE] (%.2f, %.2f)\n", state.x, state.y);
 
   switch (navigation_state) {
     case SAFE:
@@ -240,10 +211,16 @@ void potential_field_avoider_periodic(void) {
       VERBOSE_PRINT(" is inside %d \n", InsideObstacleZone(state.x, state.y));
 
       // TODO: use bottom camera to detect out of bound
-      if (state.x >= 3.0 || state.y >= 3.0 || state.x < -3.0 || state.y < -3.0) {
+      if (state.x >= 2.8 || state.y >= 3.0 || state.x < -3.0 || state.y < -2.8) {
         // if (!InsideObstacleZone(state.x, state.y)) {
         navigation_state = OUT_OF_BOUNDS;
         break;
+      }
+
+      if (_obstacle_percetage > 0.16) {
+        DEBUG_PRINT("Percentage: %.2f, Distance: %.2f \n", _obstacle_percetage, _obs[0].x);
+        DEBUG_PRINT("TOO CLOSE TO THE POLE\n");
+        navigation_state = EMERGENCY;
       }
 
       struct FloatVect2 zero = {0.0f, 0.0f};
@@ -347,7 +324,8 @@ void potential_field_avoider_periodic(void) {
         DEBUG_PRINT("[RE-ENTER] NORTH-EAST BORDER, HEADING SOUTH-WEST\n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
-      } else if ((ox < -PF_OUTER_BOUND || oy > PF_OUTER_BOUND) && ox < 0 && oy > 0 && oyaw < 0 && oyaw > -90) {
+      } else if ((ox < -PF_OUTER_BOUND || oy > PF_OUTER_BOUND) && ox < 0 && oy > 0 && oyaw < 0 &&
+                 oyaw > -90) {
         DEBUG_PRINT("[RE-ENTER] SOUTH-EAST BORDER, HEADING NORTH-WEST\n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
@@ -355,7 +333,8 @@ void potential_field_avoider_periodic(void) {
         DEBUG_PRINT("[RE-ENTER] NORTH-WEST BORDER, HEADING SOUTH-EAST \n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
-      } else if ((ox < -PF_OUTER_BOUND || oy < -PF_OUTER_BOUND) && ox < 0 && oy < 0 && oyaw > 0 && oyaw < 90) {
+      } else if ((ox < -PF_OUTER_BOUND || oy < -PF_OUTER_BOUND) && ox < 0 && oy < 0 && oyaw > 0 &&
+                 oyaw < 90) {
         DEBUG_PRINT("[RE-ENTER] SOUTH-WEST BORDER, HEADING NORTH-EAST \n");
         guidance_h_set_guided_body_vel(1.0, 0);
         navigation_state = SAFE;
