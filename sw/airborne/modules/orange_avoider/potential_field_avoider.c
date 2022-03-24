@@ -61,7 +61,7 @@
 enum navigation_state_t { SAFE, PLANNING, EMERGENCY, OUT_OF_BOUNDS };
 
 // define settings
-float K_ATTRACTION        = 10;    // strength of attraction force
+float K_ATTRACTION        = 2;    // strength of attraction force
 float K_REPULSION         = 10;    // strength of repulsion force
 float PF_GOAL_THRES       = 0.2;   // threshold near the goal
 float PF_MAX_ITER         = 10;    // max iteration of potential field iterations
@@ -85,6 +85,7 @@ float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction 
 int32_t color_count        = 0;
 float   _obstacle_count     = 0.0f;
 float   _obstacle_percetage = 0.0f;  // floor detector centroid in y direction (along the horizon)
+u_int   _emergency_count      = 0;
 
 // Define obstacle position
 #define NUM_OBS 5
@@ -123,7 +124,7 @@ struct FloatVect2 attractive(struct FloatVect2 goal, struct FloatVect2 current);
  * @param current
  * @return struct FloatVect2
  */
-struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current);
+struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current, int num);
 
 /**
  * @brief get update as position
@@ -134,7 +135,7 @@ struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current);
  * @return struct FloatVect2
  */
 struct FloatVect2 potentialFieldPosUpdate(struct FloatVect2* obs, struct FloatVect2 goal,
-                                          struct FloatVect2 curpt);
+                                          struct FloatVect2 curpt, int num);
 
 /**
  * @brief get update as velocity
@@ -145,7 +146,7 @@ struct FloatVect2 potentialFieldPosUpdate(struct FloatVect2* obs, struct FloatVe
  * @return struct FloatVect2
  */
 struct FloatVect2 potentialFieldVelUpdate(struct FloatVect2* obs, struct FloatVect2 goal,
-                                          struct FloatVect2 curpt);
+                                          struct FloatVect2 curpt, int num);
 
 /**
  * @brief convert 2D points in global frame to 2D points in body frame
@@ -188,6 +189,7 @@ void potential_field_avoider_init(void) {
   // init_random();
   _goal      = _goals[0];
   _goal_flag = 0;
+  _emergency_count = 0;
   VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", _goal.x, _goal.y);
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgOBSTACLE_ESTIMATION(OBSTACLE_SENSOR_ID, &obstacle_estimation_ev,
@@ -217,7 +219,7 @@ void potential_field_avoider_periodic(void) {
         break;
       }
 
-      if (_obstacle_percetage > 0.16) {
+      if (_obs[0].x < 0.3) {
         DEBUG_PRINT("Percentage: %.2f, Distance: %.2f \n", _obstacle_percetage, _obs[0].x);
         DEBUG_PRINT("TOO CLOSE TO THE POLE\n");
         navigation_state = EMERGENCY;
@@ -246,7 +248,7 @@ void potential_field_avoider_periodic(void) {
 
       /* Update velocity by potential field planning */
       // struct FloatVect2 wpt = potentialFieldVelUpdate(&obs_local, goal_local, zero);
-      struct FloatVect2 wpt = potentialFieldVelUpdate(&_obs, goal_local, zero);
+      struct FloatVect2 wpt = potentialFieldVelUpdate(&_obs, goal_local, zero, num_valid_obs);
 
       /* distance to the goal */
       struct FloatVect2 diff, cur;
@@ -293,8 +295,15 @@ void potential_field_avoider_periodic(void) {
     case EMERGENCY:
       VERBOSE_PRINT("FSM: ======== EMERGENCY ========\n");
       // step back if closed to obstacles
-      guided_pos_body_relative(-0.5, 0, 0);
-      navigation_state = SAFE;
+      guidance_h_set_guided_body_vel(-0.5, 0);
+      guidance_h_set_guided_heading_rate(RadOfDeg(180));
+      _emergency_count++;
+      if (_emergency_count > 3) {
+        _emergency_count = 0;
+        navigation_state = SAFE;
+      } else {
+        navigation_state = EMERGENCY;
+      }
       break;
 
     case OUT_OF_BOUNDS:
@@ -377,8 +386,13 @@ void guided_pos_body_relative(float dx, float dy, float dyaw) {
 void guided_vel_body_relative(float vx, float vy, float dyaw) {
   DEBUG_PRINT("[VEL] %.2f m/s\n",
               sqrtf(SQUARE(PF_MAX_VELOCITY * vx) + SQUARE(PF_MAX_VELOCITY * vy)));
-  guidance_h_set_guided_body_vel(PF_MAX_VELOCITY * vx, PF_MAX_VELOCITY * vy);
-  guidance_h_set_guided_heading_rate(dyaw);
+  if (vx < 0) {
+    guidance_h_set_guided_body_vel(vx,  0.0f);
+    guidance_h_set_guided_heading_rate(0);
+  } else {
+    guidance_h_set_guided_body_vel(PF_MAX_VELOCITY * vx, PF_MAX_VELOCITY * vy);
+    guidance_h_set_guided_heading_rate(dyaw);
+  }
 }
 
 void guided_move_ned(float vx, float vy, float heading) {
@@ -399,12 +413,12 @@ struct FloatVect2 attractive(struct FloatVect2 goal, struct FloatVect2 current) 
   return att;
 }
 
-struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
+struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current, int num) {
   struct FloatVect2 rep, tmp, dir;
   VECT2_ASSIGN(rep, 0.0f, 0.0f);
-  for (int i = 0; i < num_valid_obs; i++) {
+  for (int i = 0; i < num; i++) {
     /* debug */
-    // DEBUG_PRINT("[REP] obs %i (%.2f, %.2f), ", i, obs[i].x, obs[i].y);
+    DEBUG_PRINT("[REP] obs %i (%.2f, %.2f) \n", i, obs[i].x, obs[i].y);
 
     // if (obs[i].x < 0) {
     // DEBUG_PRINT("[REP] obstacle invisible \n");
@@ -420,7 +434,6 @@ struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
       VECT2_SDIV(dir, tmp, distance);
       // DEBUG_PRINT("[REP] distance is (%.2f)\n", distance);
       float u = K_REPULSION * (1.0f / distance - 1.0f / PF_INFLUENCE_RADIUS) / (SQUARE(distance));
-      // DEBUG_PRINT("[REP] repulsion gain is (%.2f)\n", u);
       VECT2_SMUL(dir, dir, u);
       VECT2_ADD(rep, dir);
     }
@@ -431,13 +444,13 @@ struct FloatVect2 repulsion(struct FloatVect2* obs, struct FloatVect2 current) {
 }
 
 struct FloatVect2 potentialFieldPosUpdate(struct FloatVect2* obs, struct FloatVect2 goal,
-                                          struct FloatVect2 curpt) {
+                                          struct FloatVect2 curpt, int num) {
   struct FloatVect2 newpt;  // new position
   struct FloatVect2 force;  // potential force
   struct FloatVect2 diret;  // direction
 
   struct FloatVect2 att = attractive(goal, curpt);
-  struct FloatVect2 rep = repulsion(obs, curpt);
+  struct FloatVect2 rep = repulsion(obs, curpt, num);
   VECT2_SUM(force, att, rep);
   VECT2_SDIV(force, force, sqrtf(VECT2_NORM2(force)));
   DEBUG_PRINT("[UPDATE] computed force as (%.2f, %.2f)\n", force.x, force.y);
@@ -448,12 +461,12 @@ struct FloatVect2 potentialFieldPosUpdate(struct FloatVect2* obs, struct FloatVe
 }
 
 struct FloatVect2 potentialFieldVelUpdate(struct FloatVect2* obs, struct FloatVect2 goal,
-                                          struct FloatVect2 curpt) {
+                                          struct FloatVect2 curpt, int num) {
   struct FloatVect2 force;  // potential force
   struct FloatVect2 diret;  // direction
 
   struct FloatVect2 att = attractive(goal, curpt);
-  struct FloatVect2 rep = repulsion(obs, curpt);
+  struct FloatVect2 rep = repulsion(obs, curpt, num);
   VECT2_SUM(force, att, rep);
   DEBUG_PRINT("[UPDATE] computed force as (%.2f, %.2f)\n", force.x, force.y);
   VECT2_SDIV(force, force, sqrtf(VECT2_NORM2(force)));

@@ -160,8 +160,8 @@ int opencv_example(char *img, int width, int height) {
   //   }
   // }
 
-  printf("obstacle NUMBER: %i\n", obs_num_detected);
-  printf("Obstacle AREA: %f | %f % \n", area_count, obstacle_percentage);
+  // printf("obstacle NUMBER: %i\n", obs_num_detected);
+  // printf("Obstacle AREA: %f | %f % \n", area_count, obstacle_percentage);
   // Calculate the depth (Koen Method)
   // https://mayavan95.medium.com/3d-position-estimation-of-a-known-object-using-a-single-camera-7a82b37b326b
   // assumptions:
