@@ -252,6 +252,8 @@ void potential_field_avoider_periodic(void) {
     VERBOSE_PRINT("[GUIDE] guidance_h.mode is %i \n", guidance_h.mode);
     return;
   }
+  struct FloatVect2 state = {stateGetPositionNed_f()->x, stateGetPositionNed_f()->y};
+    VERBOSE_PRINT("[STATE] (%.2f, %.2f)\n", state.x, state.y);
 
   switch (navigation_state) {
     case SAFE:
@@ -261,7 +263,7 @@ void potential_field_avoider_periodic(void) {
       VERBOSE_PRINT(" is inside %d", InsideObstacleZone(state.x, state.y));
 
       // TODO: use bottom camera to detect out of bound
-      if (state.x >= 2.9 || state.y >= 2.9 || state.x < -2.9 || state.y < -2.9) {
+      if (state.x >= 3.0 || state.y >= 3.0 || state.x < -3.0 || state.y < -3.0) {
         // if (!InsideObstacleZone(state.x, state.y)) {
         navigation_state = OUT_OF_BOUNDS;
         break;
