@@ -141,7 +141,7 @@ void orange_avoider_periodic(void)
   }
 
   // compute current color thresholds
-  float color_count_threshold = 0.01;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  float color_count_threshold = 0.1;// oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
 //  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
 

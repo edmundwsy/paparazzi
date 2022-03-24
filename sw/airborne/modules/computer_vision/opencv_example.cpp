@@ -62,9 +62,9 @@ int opencv_example(char *img, int width, int height){
   cvtColor(M, image, COLOR_YUV2BGR_Y422);
 
 // TODO: undistor
-  undistort(image, M1, camera_matrix_, distor_coeffs);
+  // undistort(image, M1, camera_matrix_, distor_coeffs);
 
-  blur(image, image, Size(5, 5));
+  // blur(image, image, Size(5, 5));
   // bilateralFilter(image, image_tmp, 15, 25, 25);
   cv::inRange(image, low, high, image1); //green filter
   cv::inRange(image, low2, high2, image2); //black filter
@@ -126,7 +126,7 @@ int opencv_example(char *img, int width, int height){
     
 //  }
   
-  colorbgr_opencv_to_yuv422(M1, img, width, height);
+  // colorbgr_opencv_to_yuv422(M1, img, width, height);
   printf("[CV] precent_obstacles %f | %f\n", cum_area, percent_obstacles);
 //  AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,0,0,0,0,0,0,0,0,0,0);
   AbiSendMsgOBSTACLE_ESTIMATION(1,obs_num_detected,percent_obstacles,0,0,0,0,0,0,0,0,0);
