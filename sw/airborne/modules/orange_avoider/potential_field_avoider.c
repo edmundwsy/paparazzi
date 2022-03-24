@@ -61,14 +61,14 @@
 enum navigation_state_t { SAFE, PLANNING, EMERGENCY, OUT_OF_BOUNDS };
 
 // define settings
-float K_ATTRACTION        = 2;    // strength of attraction force
+float K_ATTRACTION        = 2;     // strength of attraction force
 float K_REPULSION         = 10;    // strength of repulsion force
 float PF_GOAL_THRES       = 0.2;   // threshold near the goal
 float PF_MAX_ITER         = 10;    // max iteration of potential field iterations
 float PF_STEP_SIZE        = 1.0;   // step size between current states and new goal
 float PF_INFLUENCE_RADIUS = 3.0;   // distance where repulsion can take effect
 float PF_MAX_VELOCITY     = 1.2;   // maximum velocity
-float PF_FORWARD_WEIGHT   = 1.0;   // weight for moving forward
+float PF_FORWARD_WEIGHT   = 0.8;   // weight for moving forward
 float PF_INNER_BOUND      = 2.5f;  // inner bound, velocity should be restricted
 float PF_OUTER_BOUND      = 2.9f;  // outer bound, robot should return
 
@@ -83,9 +83,9 @@ int16_t obstacle_free_confidence    = 0;    // certainty that the way ahead if s
 float oag_color_count_frac = 0.18f;  // obstacle detection threshold as a fraction of total of image
 float oag_floor_count_frac = 0.05f;  // floor detection threshold as a fraction of total of image
 int32_t color_count        = 0;
-float   _obstacle_count     = 0.0f;
+float   _obstacle_count    = 0.0f;
 float   _obstacle_percetage = 0.0f;  // floor detector centroid in y direction (along the horizon)
-u_int   _emergency_count      = 0;
+u_int   _emergency_count    = 0;
 
 // Define obstacle position
 #define NUM_OBS 5
@@ -165,17 +165,17 @@ static abi_event obstacle_estimation_ev;
 static void      obstacle_estimation_cb(uint8_t __attribute__((unused)) sender_id, int n, float x1,
                                         float y1, float x2, float y2, float x3, float y3, float x4,
                                         float y4, float x5, float y5) {
-  _obs[0].x     = x1;
-  _obs[0].y     = y1;
-  _obs[1].x     = x2;
-  _obs[1].y     = y2;
-  _obs[2].x     = x3;
-  _obs[2].y     = y3;
-  _obs[3].x     = x4;
-  _obs[3].y     = y4;
-  _obs[4].x     = 0.0f;
-  _obs[4].y     = 0.0f;
-  _obstacle_count = x5;
+  _obs[0].x           = x1;
+  _obs[0].y           = y1;
+  _obs[1].x           = x2;
+  _obs[1].y           = y2;
+  _obs[2].x           = x3;
+  _obs[2].y           = y3;
+  _obs[3].x           = x4;
+  _obs[3].y           = y4;
+  _obs[4].x           = 0.0f;
+  _obs[4].y           = 0.0f;
+  _obstacle_count     = x5;
   _obstacle_percetage = y5;
   num_valid_obs       = n;
 }
@@ -187,8 +187,8 @@ void potential_field_avoider_init(void) {
   // Initialise random values
   srand(time(NULL));
   // init_random();
-  _goal      = _goals[0];
-  _goal_flag = 0;
+  _goal            = _goals[0];
+  _goal_flag       = 0;
   _emergency_count = 0;
   VERBOSE_PRINT("[goal] Set goal at (%.2f, %.2f)\n", _goal.x, _goal.y);
   // bind our colorfilter callbacks to receive the color filter outputs
@@ -207,22 +207,28 @@ void potential_field_avoider_periodic(void) {
 
   switch (navigation_state) {
     case SAFE:
-      VERBOSE_PRINT("======== SAFE ========\n");
+      VERBOSE_PRINT("FSM: ======== SAFE ========\n");
       struct FloatVect2 state = {stateGetPositionNed_f()->x, stateGetPositionNed_f()->y};
       VERBOSE_PRINT("[STATE] (%.2f, %.2f)\n", state.x, state.y);
       VERBOSE_PRINT(" is inside %d \n", InsideObstacleZone(state.x, state.y));
 
       // TODO: use bottom camera to detect out of bound
-      if (state.x >= 2.8 || state.y >= 3.0 || state.x < -3.0 || state.y < -2.8) {
+      if (state.x >= 2.8 || state.y >= 2.9 || state.x < -2.9 || state.y < -2.8) {
         // if (!InsideObstacleZone(state.x, state.y)) {
         navigation_state = OUT_OF_BOUNDS;
+        guidance_h_set_guided_vel(0.0f, 0.0f);
+        guidance_h_set_guided_body_vel(0.0f, 0.0f);
+        guidance_h_set_guided_heading_rate(1.0f * RadOfDeg(25));
         break;
       }
 
-      if (_obs[0].x < 0.3) {
+      if (_obs[0].x < 0.3 && _obs[0].x > 0.01) {
         DEBUG_PRINT("Percentage: %.2f, Distance: %.2f \n", _obstacle_percetage, _obs[0].x);
         DEBUG_PRINT("TOO CLOSE TO THE POLE\n");
         navigation_state = EMERGENCY;
+        guidance_h_set_guided_body_vel(-0.5, 0);
+        guidance_h_set_guided_heading_rate(RadOfDeg(180));
+        break;
       }
 
       struct FloatVect2 zero = {0.0f, 0.0f};
@@ -269,7 +275,7 @@ void potential_field_avoider_periodic(void) {
 
         if (ABS(state.x) > PF_INNER_BOUND || ABS(state.y) > PF_INNER_BOUND) {
           DEBUG_PRINT("near border, restricting speed ...\n");
-          VECT2_SMUL(wpt, wpt, 0.3);
+          VECT2_SMUL(wpt, wpt, 0.4);
         }
         /* if send velocity */
         guided_vel_body_relative(wpt.x, wpt.y, agl);
@@ -282,7 +288,7 @@ void potential_field_avoider_periodic(void) {
       break;
 
     case PLANNING:
-      VERBOSE_PRINT("======== PLANNING ========\n");
+      VERBOSE_PRINT("FSM: ======== PLANNING ========\n");
       _goal_flag++;
       if (_goal_flag == 4) {
         _goal_flag = 0;
@@ -296,7 +302,7 @@ void potential_field_avoider_periodic(void) {
       VERBOSE_PRINT("FSM: ======== EMERGENCY ========\n");
       // step back if closed to obstacles
       guidance_h_set_guided_body_vel(-0.5, 0);
-      guidance_h_set_guided_heading_rate(RadOfDeg(180));
+      guidance_h_set_guided_heading_rate(RadOfDeg(30));
       _emergency_count++;
       if (_emergency_count > 3) {
         _emergency_count = 0;
@@ -387,7 +393,7 @@ void guided_vel_body_relative(float vx, float vy, float dyaw) {
   DEBUG_PRINT("[VEL] %.2f m/s\n",
               sqrtf(SQUARE(PF_MAX_VELOCITY * vx) + SQUARE(PF_MAX_VELOCITY * vy)));
   if (vx < 0) {
-    guidance_h_set_guided_body_vel(vx,  0.0f);
+    guidance_h_set_guided_body_vel(vx, 0.0f);
     guidance_h_set_guided_heading_rate(0);
   } else {
     guidance_h_set_guided_body_vel(PF_MAX_VELOCITY * vx, PF_MAX_VELOCITY * vy);

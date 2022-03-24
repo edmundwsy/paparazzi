@@ -101,6 +101,21 @@ int opencv_example(char *img, int width, int height) {
   int j = 0;
   obstacle_percentage = 0.0f;
   area_count          = 0.0f;
+
+  depth_array[0] = 0.0f;
+  depth_array[1] = 0.0f;
+  depth_array[2] = 0.0f;
+  depth_array[3] = 0.0f;
+
+  y_position_array[0] = 0.0f;
+  y_position_array[1] = 0.0f;
+  y_position_array[2] = 0.0f;
+  y_position_array[3] = 0.0f;
+  x_position_array[0] = 0.0f;
+  x_position_array[1] = 0.0f;
+  x_position_array[2] = 0.0f;
+  x_position_array[3] = 0.0f;
+
   for (int i = 1; i < num_labels; i++) {
     area_count += stats.at<int>(i, CC_STAT_AREA);
 
