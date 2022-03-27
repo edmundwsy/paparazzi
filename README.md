@@ -13,5 +13,15 @@ Paparazzi UAS
   - Connected components
   - 3D projection
 - Planning modules
-  - Potential field planner
-  - State machine { SAFE, PLANNING, EMERGENCY, OUT_OF_BOUND }
+  - Potential field planner (publish velocity commands)
+  - State machine for navigation { SAFE, PLANNING, EMERGENCY, OUT_OF_BOUND }
+
+## Branches
+
+- `group12`: default branch
+- `opencv`: a simple C++ vision modules using opencv functions, modified by Moji Shi.
+- `guided_avoider`: orange avoider (baseline avoider) with our opencv vision module, modified by Joseph Sherman and Koen Bessels
+- `cv_pf_avoider`: potential field avoider with our opencv vision module.
+- `cv_pf_avoider_emergency`: potential field avoider with vision module and emergency stop.
+- `cv_pf_avoider_corner`: potential field avoider with vision modules. Slightly modified the behaviour when drone reaching the boundary: drone will fly to diagonal corners when it goes out of bounds.
+- `siyuanwu`: potential field avoider, but static waypoints is published.
